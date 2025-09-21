@@ -197,21 +197,30 @@ export const ImageEditor = () => {
 
     const selectionBounds = selectionBox.getBoundingRect();
     
-    // Find objects within the selection box
+    // Find objects that overlap with the selection box (more lenient detection)
     const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
       if (obj === selectionBox) return false;
       
       const objBounds = obj.getBoundingRect();
-      return (
-        objBounds.left >= selectionBounds.left &&
-        objBounds.top >= selectionBounds.top &&
-        objBounds.left + objBounds.width <= selectionBounds.left + selectionBounds.width &&
-        objBounds.top + objBounds.height <= selectionBounds.top + selectionBounds.height
+      
+      // Check if objects overlap (not just completely contained)
+      const overlaps = !(
+        objBounds.left > selectionBounds.left + selectionBounds.width ||
+        objBounds.left + objBounds.width < selectionBounds.left ||
+        objBounds.top > selectionBounds.top + selectionBounds.height ||
+        objBounds.top + objBounds.height < selectionBounds.top
       );
+      
+      return overlaps;
     });
 
+    console.log(`Found ${objectsToRemove.length} objects to remove within selection box`);
+
     // Remove objects within selection
-    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
+    objectsToRemove.forEach(obj => {
+      console.log(`Removing object of type: ${obj.type}`);
+      fabricCanvas.remove(obj);
+    });
 
     // Add replacement text
     const newText = new FabricText(replacementText, {
@@ -229,7 +238,7 @@ export const ImageEditor = () => {
     setReplacementText("");
     fabricCanvas.renderAll();
     
-    toast("Text replaced successfully!");
+    toast(`Replaced ${objectsToRemove.length} objects with new text!`);
   }, [fabricCanvas, selectionBox, replacementText, textProperties]);
 
   const deleteSelected = useCallback(() => {
