@@ -19,14 +19,15 @@ import {
   Trash2,
   Move,
   MousePointer,
-  Palette
+  Palette,
+  Eraser
 } from "lucide-react";
 
 export const ImageEditor = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
-  const [activeTool, setActiveTool] = useState<"select" | "text" | "rectangle" | "circle" | "move">("select");
+  const [activeTool, setActiveTool] = useState<"select" | "text" | "rectangle" | "circle" | "move" | "eraser">("select");
   const [textProperties, setTextProperties] = useState({
     text: "Edit text here",
     fontSize: 24,
@@ -34,13 +35,16 @@ export const ImageEditor = () => {
     fontFamily: "Arial"
   });
   const [shapeColor, setShapeColor] = useState("#8B5CF6");
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [selectionBox, setSelectionBox] = useState<Rect | null>(null);
+  const [replacementText, setReplacementText] = useState("");
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const canvas = new FabricCanvas(canvasRef.current, {
-      width: 800,
-      height: 600,
+      width: canvasSize.width,
+      height: canvasSize.height,
       backgroundColor: "#ffffff",
     });
 
@@ -63,19 +67,35 @@ export const ImageEditor = () => {
       const imgUrl = e.target?.result as string;
       
       FabricImage.fromURL(imgUrl).then((img) => {
-        // Scale image to fit canvas while maintaining aspect ratio
-        const canvasWidth = fabricCanvas.getWidth();
-        const canvasHeight = fabricCanvas.getHeight();
         const imgWidth = img.width || 1;
         const imgHeight = img.height || 1;
         
-        const scale = Math.min(canvasWidth / imgWidth, canvasHeight / imgHeight);
-        img.scale(scale * 0.8); // Leave some margin
+        // Set canvas size to match image dimensions
+        const maxWidth = 1200;
+        const maxHeight = 800;
         
-        // Center the image
+        let newWidth = imgWidth;
+        let newHeight = imgHeight;
+        
+        // Scale down if image is too large
+        if (imgWidth > maxWidth || imgHeight > maxHeight) {
+          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+          newWidth = imgWidth * scale;
+          newHeight = imgHeight * scale;
+        }
+        
+        setCanvasSize({ width: newWidth, height: newHeight });
+        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
+        
+        // Scale image to fit canvas exactly
+        img.scaleToWidth(newWidth);
+        img.scaleToHeight(newHeight);
+        
+        // Position image at origin
         img.set({
-          left: (canvasWidth - img.getScaledWidth()) / 2,
-          top: (canvasHeight - img.getScaledHeight()) / 2,
+          left: 0,
+          top: 0,
+          selectable: false, // Make background image non-selectable
         });
         
         fabricCanvas.clear();
@@ -143,6 +163,74 @@ export const ImageEditor = () => {
     fabricCanvas.setActiveObject(circle);
     fabricCanvas.renderAll();
   }, [fabricCanvas, shapeColor]);
+
+  const addSelectionBox = useCallback(() => {
+    if (!fabricCanvas) return;
+
+    const rect = new Rect({
+      left: 100,
+      top: 100,
+      width: 150,
+      height: 40,
+      fill: 'rgba(255, 0, 0, 0.2)',
+      stroke: '#ff0000',
+      strokeWidth: 2,
+      strokeDashArray: [5, 5],
+      cornerColor: '#ff0000',
+      cornerSize: 8,
+      transparentCorners: false,
+    });
+
+    fabricCanvas.add(rect);
+    fabricCanvas.setActiveObject(rect);
+    setSelectionBox(rect);
+    fabricCanvas.renderAll();
+    
+    toast("Selection box added! Position it over text to erase and replace");
+  }, [fabricCanvas]);
+
+  const eraseAndReplace = useCallback(() => {
+    if (!fabricCanvas || !selectionBox || !replacementText.trim()) {
+      toast("Please add a selection box and enter replacement text");
+      return;
+    }
+
+    const selectionBounds = selectionBox.getBoundingRect();
+    
+    // Find objects within the selection box
+    const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
+      if (obj === selectionBox) return false;
+      
+      const objBounds = obj.getBoundingRect();
+      return (
+        objBounds.left >= selectionBounds.left &&
+        objBounds.top >= selectionBounds.top &&
+        objBounds.left + objBounds.width <= selectionBounds.left + selectionBounds.width &&
+        objBounds.top + objBounds.height <= selectionBounds.top + selectionBounds.height
+      );
+    });
+
+    // Remove objects within selection
+    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
+
+    // Add replacement text
+    const newText = new FabricText(replacementText, {
+      left: selectionBounds.left + 5,
+      top: selectionBounds.top + 5,
+      fontSize: Math.min(selectionBounds.height - 10, 24),
+      fill: textProperties.color,
+      fontFamily: textProperties.fontFamily,
+      editable: true,
+    });
+
+    fabricCanvas.add(newText);
+    fabricCanvas.remove(selectionBox);
+    setSelectionBox(null);
+    setReplacementText("");
+    fabricCanvas.renderAll();
+    
+    toast("Text replaced successfully!");
+  }, [fabricCanvas, selectionBox, replacementText, textProperties]);
 
   const deleteSelected = useCallback(() => {
     if (!fabricCanvas) return;
@@ -251,6 +339,7 @@ export const ImageEditor = () => {
     { id: "text", icon: Type, label: "Add Text", onClick: addText },
     { id: "rectangle", icon: Square, label: "Rectangle", onClick: addRectangle },
     { id: "circle", icon: CircleIcon, label: "Circle", onClick: addCircle },
+    { id: "eraser", icon: Eraser, label: "Erase Box", onClick: addSelectionBox },
   ];
 
   return (
@@ -297,6 +386,28 @@ export const ImageEditor = () => {
                 ))}
               </div>
             </Card>
+
+            {/* Erase & Replace Tool */}
+            {selectionBox && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 text-foreground">Erase & Replace</h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="replacement-text" className="text-sm">Replacement Text</Label>
+                    <Input
+                      id="replacement-text"
+                      value={replacementText}
+                      onChange={(e) => setReplacementText(e.target.value)}
+                      placeholder="Enter new text..."
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button onClick={eraseAndReplace} className="w-full">
+                    Replace Text
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             {/* Text Properties */}
             <Card className="p-4">
@@ -397,11 +508,12 @@ export const ImageEditor = () => {
         </div>
 
         {/* Main Canvas Area */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="bg-editor-canvas rounded-xl shadow-lg p-8 max-w-fit">
+        <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+          <div className="bg-editor-canvas rounded-xl shadow-lg p-8" style={{ width: 'fit-content', height: 'fit-content' }}>
             <canvas 
               ref={canvasRef} 
               className="border border-border rounded-lg shadow-md"
+              style={{ maxWidth: '100%', height: 'auto' }}
             />
           </div>
         </div>
