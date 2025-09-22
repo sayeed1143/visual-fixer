@@ -31,72 +31,44 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
       return;
     }
 
-    if (!apiKey.trim()) {
-      toast("Please enter your OpenRouter API key");
-      return;
-    }
-
     setIsDetecting(true);
     
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('/api/detect-text', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-pro-vision',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Analyze this image and detect all text elements. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100), width/height (as percentages), and confidence (0-1). Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageDataUrl
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.1
+          imageDataUrl
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to detect text with OpenRouter API');
+        throw new Error('Failed to detect text with AI models');
       }
 
       const data = await response.json();
-      const textContent = data.choices[0]?.message?.content || '';
       
-      // Parse the JSON response
-      const jsonMatch = textContent.match(/\[.*\]/s);
-      if (jsonMatch) {
-        const detectedTexts: DetectedText[] = JSON.parse(jsonMatch[0]).map((item: any, index: number) => ({
-          id: `text-${index}`,
+      if (data.success && data.detectedTexts) {
+        const detectedTexts: DetectedText[] = data.detectedTexts.map((item: any) => ({
+          id: item.id,
           text: item.text,
           x: item.x,
           y: item.y,
           width: item.width,
           height: item.height,
-          confidence: item.confidence || 0.8
+          confidence: item.confidence
         }));
         
         onTextDetected(detectedTexts);
-        toast(`Detected ${detectedTexts.length} text elements!`);
+        toast(`Detected ${detectedTexts.length} text elements using ${data.model}!`);
       } else {
         throw new Error('No text detected in image');
       }
     } catch (error) {
       console.error('Text detection error:', error);
-      toast("Failed to detect text. Please check your API key.");
+      toast("Failed to detect text with AI models");
     } finally {
       setIsDetecting(false);
     }
@@ -153,29 +125,20 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
       </h3>
       
       <div className="space-y-4">
-        <div>
-          <Label htmlFor="api-key" className="text-sm">OpenRouter API Key (Optional)</Label>
-          <Input
-            id="api-key"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-or-..."
-            className="mt-1"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            For advanced AI text detection. Get your key from openrouter.ai
+        <div className="bg-muted/50 p-3 rounded-lg">
+          <p className="text-xs text-muted-foreground">
+            AI text detection uses multiple models: Gemini 2.5 Flash → GPT-4o → Claude 3.5 Sonnet with automatic fallback for best results.
           </p>
         </div>
 
         <div className="space-y-2">
           <Button 
             onClick={detectTextWithOpenRouter}
-            disabled={isDetecting || !apiKey.trim()}
+            disabled={isDetecting}
             className="w-full"
           >
             <Zap className="mr-2 h-4 w-4" />
-            {isDetecting ? "Detecting..." : "AI Text Detection"}
+            {isDetecting ? "Detecting..." : "AI Multi-Model Detection"}
           </Button>
           
           <Button 
