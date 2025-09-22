@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
+import { TextDetection } from "./TextDetection";
 import { toast } from "sonner";
 import { 
   Type, 
@@ -23,6 +24,16 @@ import {
   Eraser
 } from "lucide-react";
 
+interface DetectedText {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
+}
+
 export const ImageEditor = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +49,10 @@ export const ImageEditor = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [selectionBox, setSelectionBox] = useState<Rect | null>(null);
   const [replacementText, setReplacementText] = useState("");
+  const [detectedTexts, setDetectedTexts] = useState<DetectedText[]>([]);
+  const [textHighlights, setTextHighlights] = useState<Rect[]>([]);
+  const [currentImageDataUrl, setCurrentImageDataUrl] = useState<string>("");
+  const [selectedTextHighlight, setSelectedTextHighlight] = useState<Rect | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -102,8 +117,11 @@ export const ImageEditor = () => {
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
         
+        // Store image data URL for text detection
+        setCurrentImageDataUrl(imgUrl);
+        
         toast("Image uploaded successfully!", {
-          description: "You can now edit text and add elements"
+          description: "Use AI text detection to automatically find text in your image"
         });
       });
     };
@@ -189,6 +207,113 @@ export const ImageEditor = () => {
     toast("Selection box added! Position it over text to erase and replace");
   }, [fabricCanvas]);
 
+  const handleTextDetected = useCallback((texts: DetectedText[]) => {
+    if (!fabricCanvas) return;
+    
+    // Clear existing highlights
+    textHighlights.forEach(highlight => fabricCanvas.remove(highlight));
+    setTextHighlights([]);
+    
+    // Create highlight rectangles for detected text
+    const highlights = texts.map((detectedText, index) => {
+      const highlight = new Rect({
+        left: (detectedText.x * canvasSize.width) / 100,
+        top: (detectedText.y * canvasSize.height) / 100,
+        width: (detectedText.width * canvasSize.width) / 100,
+        height: (detectedText.height * canvasSize.height) / 100,
+        fill: 'rgba(255, 215, 0, 0.3)',
+        stroke: '#FFD700',
+        strokeWidth: 2,
+        strokeDashArray: [3, 3],
+        selectable: true,
+        hoverCursor: 'pointer',
+        moveCursor: 'pointer',
+      });
+
+      // Add click handler to select text for replacement
+      highlight.on('mousedown', () => {
+        setSelectedTextHighlight(highlight);
+        setReplacementText(detectedText.text);
+        toast(`Selected "${detectedText.text}" - Enter replacement text below`);
+      });
+
+      return highlight;
+    });
+
+    highlights.forEach(highlight => fabricCanvas.add(highlight));
+    setTextHighlights(highlights);
+    setDetectedTexts(texts);
+    fabricCanvas.renderAll();
+  }, [fabricCanvas, canvasSize, textHighlights]);
+
+  const replaceDetectedText = useCallback(() => {
+    if (!fabricCanvas || !selectedTextHighlight || !replacementText.trim()) {
+      toast("Please select a detected text area and enter replacement text");
+      return;
+    }
+
+    const highlightBounds = selectedTextHighlight.getBoundingRect();
+    
+    // Find the original detected text data
+    const textIndex = textHighlights.indexOf(selectedTextHighlight);
+    const originalText = detectedTexts[textIndex];
+    
+    if (!originalText) {
+      toast("Could not find original text data");
+      return;
+    }
+
+    // Remove objects within the highlight area
+    const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
+      if (textHighlights.includes(obj as Rect)) return false;
+      
+      const objBounds = obj.getBoundingRect();
+      const overlaps = !(
+        objBounds.left > highlightBounds.left + highlightBounds.width ||
+        objBounds.left + objBounds.width < highlightBounds.left ||
+        objBounds.top > highlightBounds.top + highlightBounds.height ||
+        objBounds.top + objBounds.height < highlightBounds.top
+      );
+      
+      return overlaps;
+    });
+
+    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
+
+    // Calculate optimal font size based on highlight area
+    const maxFontSize = Math.min(highlightBounds.height * 0.8, 48);
+    const minFontSize = 8;
+    let fontSize = maxFontSize;
+    
+    // Estimate font size to fit text width
+    const estimatedWidth = replacementText.length * fontSize * 0.6;
+    if (estimatedWidth > highlightBounds.width) {
+      fontSize = Math.max(minFontSize, (highlightBounds.width / replacementText.length) / 0.6);
+    }
+
+    // Add replacement text with matching style
+    const newText = new FabricText(replacementText, {
+      left: highlightBounds.left + 2,
+      top: highlightBounds.top + (highlightBounds.height - fontSize) / 2,
+      fontSize: fontSize,
+      fill: textProperties.color,
+      fontFamily: textProperties.fontFamily,
+      fontWeight: 'normal',
+      editable: true,
+    });
+
+    fabricCanvas.add(newText);
+    
+    // Remove the highlight
+    fabricCanvas.remove(selectedTextHighlight);
+    setTextHighlights(prev => prev.filter(h => h !== selectedTextHighlight));
+    setSelectedTextHighlight(null);
+    setReplacementText("");
+    
+    fabricCanvas.renderAll();
+    toast("Text replaced seamlessly!");
+  }, [fabricCanvas, selectedTextHighlight, replacementText, textHighlights, detectedTexts, textProperties]);
+
   const eraseAndReplace = useCallback(() => {
     if (!fabricCanvas || !selectionBox || !replacementText.trim()) {
       toast("Please add a selection box and enter replacement text");
@@ -199,7 +324,7 @@ export const ImageEditor = () => {
     
     // Find objects that overlap with the selection box (more lenient detection)
     const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
-      if (obj === selectionBox) return false;
+      if (obj === selectionBox || textHighlights.includes(obj as Rect)) return false;
       
       const objBounds = obj.getBoundingRect();
       
@@ -239,7 +364,7 @@ export const ImageEditor = () => {
     fabricCanvas.renderAll();
     
     toast(`Replaced ${objectsToRemove.length} objects with new text!`);
-  }, [fabricCanvas, selectionBox, replacementText, textProperties]);
+  }, [fabricCanvas, selectionBox, replacementText, textProperties, textHighlights]);
 
   const deleteSelected = useCallback(() => {
     if (!fabricCanvas) return;
@@ -323,6 +448,9 @@ export const ImageEditor = () => {
     
     fabricCanvas.clear();
     fabricCanvas.backgroundColor = "#ffffff";
+    setDetectedTexts([]);
+    setTextHighlights([]);
+    setCurrentImageDataUrl("");
     fabricCanvas.renderAll();
     toast("Canvas cleared");
   }, [fabricCanvas]);
@@ -376,6 +504,36 @@ export const ImageEditor = () => {
                 Choose Image
               </Button>
             </Card>
+
+            {/* Text Detection */}
+            {currentImageDataUrl && (
+              <TextDetection 
+                onTextDetected={handleTextDetected}
+                imageDataUrl={currentImageDataUrl}
+              />
+            )}
+
+            {/* Smart Text Replacement */}
+            {selectedTextHighlight && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 text-foreground">Smart Text Replacement</h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="smart-replacement-text" className="text-sm">New Text</Label>
+                    <Input
+                      id="smart-replacement-text"
+                      value={replacementText}
+                      onChange={(e) => setReplacementText(e.target.value)}
+                      placeholder="Enter replacement text..."
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button onClick={replaceDetectedText} className="w-full">
+                    Replace Selected Text
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             {/* Tools */}
             <Card className="p-4">
