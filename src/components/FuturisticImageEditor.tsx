@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
-  Trash2
+  Trash2,
+  Share2
 } from "lucide-react";
 
 interface DetectedText {
@@ -173,8 +174,28 @@ export const FuturisticImageEditor = () => {
         const fabric = await import("fabric");
         const img = await fabric.Image.fromURL(styling.editedImage);
         
-        fabricCanvas.clear();
+        // Apply the same scaling logic as in handleImageUpload
+        const maxWidth = 1400;
+        const maxHeight = 900;
+        let newWidth = img.width || maxWidth;
+        let newHeight = img.height || maxHeight;
+        
+        if (newWidth > maxWidth || newHeight > maxHeight) {
+          const scale = Math.min(maxWidth / newWidth, maxHeight / newHeight);
+          newWidth = newWidth * scale;
+          newHeight = newHeight * scale;
+        }
+        
+        // Update canvas size to match scaled image
+        setCanvasSize({ width: newWidth, height: newHeight });
+        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
+        
+        // Scale the image to fit properly
+        img.scaleToWidth(newWidth);
+        img.scaleToHeight(newHeight);
         img.set({ left: 0, top: 0, selectable: false, evented: false });
+        
+        fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
         
@@ -211,6 +232,61 @@ export const FuturisticImageEditor = () => {
       toast.success("Image exported!");
     } catch (error) {
       toast.error("Export failed");
+    }
+  }, [fabricCanvas]);
+
+  const shareImage = useCallback(async () => {
+    if (!fabricCanvas) return;
+
+    try {
+      const dataURL = fabricCanvas.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 1,
+      });
+
+      // Convert data URL to blob for sharing
+      const response = await fetch(dataURL);
+      const blob = await response.blob();
+      const file = new File([blob], `neural-edit-${Date.now()}.png`, { type: 'image/png' });
+
+      // Check if Web Share API is supported
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'SnapEdit - Image Editor',
+          text: 'Check out this image I edited with SnapEdit!',
+          files: [file],
+        });
+        toast.success("Image shared successfully!");
+      } else if (navigator.share) {
+        // Fallback to sharing without files
+        await navigator.share({
+          title: 'SnapEdit - Image Editor',
+          text: 'Check out this amazing image editor I used!',
+          url: window.location.href,
+        });
+        toast.success("Link shared successfully!");
+      } else {
+        // Fallback: Copy image data to clipboard
+        if (navigator.clipboard && navigator.clipboard.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'image/png': blob
+            })
+          ]);
+          toast.success("Image copied to clipboard!");
+        } else {
+          // Ultimate fallback: Download the image
+          const link = document.createElement('a');
+          link.download = `neural-edit-${Date.now()}.png`;
+          link.href = dataURL;
+          link.click();
+          toast.info("Share not supported. Image downloaded instead.");
+        }
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      toast.error("Failed to share image");
     }
   }, [fabricCanvas]);
 
@@ -317,7 +393,7 @@ export const FuturisticImageEditor = () => {
                   <Zap className="mr-2 h-4 w-4 text-purple-500" />
                   Quick Actions
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     onClick={exportImage}
                     variant="outline"
@@ -327,6 +403,16 @@ export const FuturisticImageEditor = () => {
                   >
                     <Download className="mr-2 h-3 w-3" />
                     Export
+                  </Button>
+                  <Button
+                    onClick={shareImage}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-500/30 hover:bg-blue-500/10"
+                    disabled={!currentImageDataUrl}
+                  >
+                    <Share2 className="mr-2 h-3 w-3" />
+                    Share
                   </Button>
                   <Button
                     onClick={clearCanvas}

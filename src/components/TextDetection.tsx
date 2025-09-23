@@ -23,7 +23,6 @@ interface TextDetectionProps {
 }
 
 export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }: TextDetectionProps) => {
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || "");
   const [isDetecting, setIsDetecting] = useState(false);
 
   // Downscale and compress data URL to fit serverless limits (~4.5MB on Vercel)
@@ -60,9 +59,6 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
     setIsDetecting(true);
 
     try {
-      // Persist key for other tools/components
-      if (apiKey) localStorage.setItem('openrouter_api_key', apiKey);
-
       const originalSizeKB = Math.round((imageDataUrl.length * 3) / 4 / 1024);
       const compressed = await compressDataUrl(imageDataUrl);
       const compressedSizeKB = Math.round((compressed.length * 3) / 4 / 1024);
@@ -74,15 +70,14 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(apiKey ? { 'x-openrouter-key': apiKey } : {}),
         },
-        body: JSON.stringify({ imageDataUrl: compressed, apiKey: apiKey || undefined }),
+        body: JSON.stringify({ imageDataUrl: compressed }),
       });
 
       if (!response.ok) {
         const text = await response.text();
         if (response.status === 400 && text.includes('MISSING_API_KEY')) {
-          throw new Error('Missing OpenRouter API key. Enter it above or use OCR Detection.');
+          throw new Error('OpenRouter API key configuration issue. Please check server configuration.');
         }
         if (response.status === 413) {
           throw new Error('Image too large for serverless function');
@@ -209,6 +204,54 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
     }
   };
 
+  // Preprocess image for better OCR results
+  const preprocessImageForOCR = async (imageDataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas context not available'));
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Get image data for processing
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Apply contrast enhancement and noise reduction
+        for (let i = 0; i < data.length; i += 4) {
+          // Convert to grayscale for better OCR
+          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          
+          // Apply contrast enhancement
+          const contrast = 1.2;
+          const enhanced = Math.max(0, Math.min(255, (gray - 128) * contrast + 128));
+          
+          // Apply threshold for binary conversion (helps with text detection)
+          const threshold = enhanced > 140 ? 255 : 0;
+          
+          data[i] = threshold;     // Red
+          data[i + 1] = threshold; // Green
+          data[i + 2] = threshold; // Blue
+          // Alpha stays the same
+        }
+        
+        // Put processed image data back
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Return processed image as data URL
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => reject(new Error('Failed to load image for preprocessing'));
+      img.src = imageDataUrl;
+    });
+  };
+
   const detectTextWithTesseract = async () => {
     if (!imageDataUrl) {
       toast("Please upload an image first");
@@ -220,33 +263,77 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
     try {
       const Tesseract = await import('tesseract.js');
       
-      const result = await Tesseract.recognize(imageDataUrl, 'eng', {
-        logger: m => console.log(m)
-      });
+      // Preprocess image for better OCR results
+      const preprocessedImage = await preprocessImageForOCR(imageDataUrl);
+      
+      toast("Processing image with OCR...");
+      
+      const result = await Tesseract.recognize(preprocessedImage, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text' && m.progress > 0) {
+            toast(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        tessedit_pageseg_mode: '1', // Automatic page segmentation
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?@#$%&*()_+-=[]{}|;:"\'/\\<>',
+        preserve_interword_spaces: '1'
+      } as any);
 
       const data = result.data as any;
 
-      if (!data || !data.words) {
-        throw new Error('No words detected in image');
+      if (!data) {
+        throw new Error('OCR processing failed - no data returned');
+      }
+
+      // Use both words and lines for better detection coverage
+      const words = data.words || [];
+      const lines = data.lines || [];
+      
+      if (words.length === 0 && lines.length === 0) {
+        throw new Error('No text detected in image. Try using AI detection instead.');
       }
 
       const imageRect = { width: data.width || 800, height: data.height || 600 };
       
-      const detectedTexts: DetectedText[] = data.words.map((word: any, index: number) => ({
-        id: `word-${index}`,
-        text: word.text,
-        x: (word.bbox.x0 / imageRect.width) * 100,
-        y: (word.bbox.y0 / imageRect.height) * 100,
-        width: ((word.bbox.x1 - word.bbox.x0) / imageRect.width) * 100,
-        height: ((word.bbox.y1 - word.bbox.y0) / imageRect.height) * 100,
-        confidence: word.confidence / 100
-      })).filter(text => text.confidence > 0.5);
+      // Process words with lower confidence threshold for better detection
+      const wordTexts: DetectedText[] = words
+        .filter((word: any) => word.confidence > 30 && word.text?.trim().length > 0)
+        .map((word: any, index: number) => ({
+          id: `word-${index}`,
+          text: word.text.trim(),
+          x: (word.bbox.x0 / imageRect.width) * 100,
+          y: (word.bbox.y0 / imageRect.height) * 100,
+          width: ((word.bbox.x1 - word.bbox.x0) / imageRect.width) * 100,
+          height: ((word.bbox.y1 - word.bbox.y0) / imageRect.height) * 100,
+          confidence: word.confidence / 100
+        }));
+
+      // If word detection is poor, try line detection as fallback
+      const lineTexts: DetectedText[] = lines
+        .filter((line: any) => line.confidence > 30 && line.text?.trim().length > 0)
+        .map((line: any, index: number) => ({
+          id: `line-${index}`,
+          text: line.text.trim(),
+          x: (line.bbox.x0 / imageRect.width) * 100,
+          y: (line.bbox.y0 / imageRect.height) * 100,
+          width: ((line.bbox.x1 - line.bbox.x0) / imageRect.width) * 100,
+          height: ((line.bbox.y1 - line.bbox.y0) / imageRect.height) * 100,
+          confidence: line.confidence / 100
+        }));
+
+      // Use words if available, otherwise fall back to lines
+      const detectedTexts = wordTexts.length > 0 ? wordTexts : lineTexts;
+
+      if (detectedTexts.length === 0) {
+        throw new Error('No readable text found. Try improving image quality or using AI detection.');
+      }
 
       onTextDetected(detectedTexts);
-      toast(`Detected ${detectedTexts.length} text elements!`);
+      toast(`OCR detected ${detectedTexts.length} text elements!`);
     } catch (error) {
       console.error('Tesseract detection error:', error);
-      toast("Failed to detect text with OCR");
+      const message = error instanceof Error ? error.message : 'Failed to detect text with OCR';
+      toast(message);
     } finally {
       setIsDetecting(false);
     }
@@ -276,15 +363,6 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="api-key" className="text-sm text-gray-200">API Key (optional)</Label>
-        <Input
-          id="api-key"
-          value={apiKey}
-          onChange={(e) => { setApiKey(e.target.value); localStorage.setItem('openrouter_api_key', e.target.value); }}
-          placeholder="Enter OpenRouter API key (kept locally)"
-          className="bg-black/30 border-gray-600 text-white placeholder:text-gray-400"
-        />
-
         <div className="grid grid-cols-1 gap-2">
           <Button
             onClick={detectTextWithOpenRouter}

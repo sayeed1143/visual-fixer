@@ -92,9 +92,11 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.0-flash-exp',
-      'google/gemini-2.5-flash-lite-preview-06-17',
+      'google/gemini-2.0-flash-001',
+      'google/gemini-1.5-flash',
+      'google/gemini-pro-1.5',
       'openai/gpt-4o',
+      'openai/gpt-4o-mini',
       'anthropic/claude-3.5-sonnet'
     ];
 
@@ -177,7 +179,9 @@ app.post('/api/edit-image', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-image-preview'
+      'black-forest-labs/flux-1.1-pro',
+      'black-forest-labs/flux-dev',
+      'google/gemini-2.0-flash-001'
     ];
 
     for (const model of models) {
@@ -244,7 +248,9 @@ app.post('/api/replace-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-image-preview'
+      'black-forest-labs/flux-1.1-pro',
+      'black-forest-labs/flux-dev',
+      'google/gemini-2.0-flash-001'
     ];
 
     const prompt = coordinates

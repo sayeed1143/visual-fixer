@@ -63,12 +63,10 @@ export const AdvancedTextReplacement = ({
 
     try {
       if (useAIStyling) {
-        const apiKey = localStorage.getItem('openrouter_api_key') || '';
         const response = await fetch('/api/replace-text', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(apiKey ? { 'x-openrouter-key': apiKey } : {}),
           },
           body: JSON.stringify({
             imageDataUrl,
@@ -87,7 +85,7 @@ export const AdvancedTextReplacement = ({
             if (errText) message = errText;
           }
           if (message.includes('MISSING_API_KEY')) {
-            toast.error('Missing OpenRouter API key. Enter it in Text Detection or set OPENROUTER_API_KEY in the server env.');
+            toast.error('OpenRouter API key configuration issue. Please check server configuration.');
           }
           throw new Error(message);
         }
