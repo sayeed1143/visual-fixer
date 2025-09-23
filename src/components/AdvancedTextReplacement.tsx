@@ -339,7 +339,7 @@ export const AdvancedTextReplacement = ({
       )}
 
       {!selectedText && detectedTexts.length > 0 && (
-        <p className="text-sm text-gray-400 text-center py-2">
+        <p className="text-sm text-gray-200 text-center py-2">
           Select a text region to replace
         </p>
       )}
