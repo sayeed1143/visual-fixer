@@ -166,6 +166,8 @@ export const FuturisticImageEditor = () => {
         });
         
         console.log('Image upload completed successfully');
+        // Reset input so selecting the same file triggers change
+        (event.target as HTMLInputElement).value = '';
       } catch (error) {
         console.error('Error loading image:', error);
         setIsProcessing(false);
