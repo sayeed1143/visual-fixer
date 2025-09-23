@@ -40,8 +40,8 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-preview',
       'openai/gpt-4o',
+      'openai/gpt-4o-mini',
       'anthropic/claude-3.5-sonnet'
     ];
 
@@ -110,6 +110,31 @@ app.post('/api/detect-text', async (req, res) => {
         console.error(`Error with ${model}:`, error);
         continue;
       }
+    }
+
+    // As a final fallback, attempt local OCR using Tesseract.js
+    try {
+      const Tesseract = await import('tesseract.js');
+      const result = await Tesseract.recognize(imageDataUrl, 'eng');
+      const data = result.data;
+      if (data && Array.isArray(data.words) && data.words.length > 0) {
+        const detectedTexts = data.words
+          .filter((w) => (w.confidence ?? 0) > 50 && (w.text ?? '').trim().length > 0)
+          .map((word, index) => ({
+            id: `ocr-${index}`,
+            text: word.text,
+            x: word.bbox.x0,
+            y: word.bbox.y0,
+            width: Math.max(1, word.bbox.x1 - word.bbox.x0),
+            height: Math.max(1, word.bbox.y1 - word.bbox.y0),
+            confidence: (word.confidence ?? 50) / 100,
+          }));
+        if (detectedTexts.length > 0) {
+          return res.status(200).json({ success: true, detectedTexts, model: 'tesseract.js' });
+        }
+      }
+    } catch (fallbackErr) {
+      console.error('Tesseract fallback failed:', fallbackErr);
     }
 
     return res.status(500).json({ error: 'All models failed to detect text' });
