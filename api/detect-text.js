@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   // Models in order of preference: cost-effective -> premium -> precise
   const models = [
-    'google/gemini-2.5-flash-preview',
+    'openai/gpt-4o-mini',
     'openai/gpt-4o',
     'anthropic/claude-3.5-sonnet'
   ];
@@ -65,7 +65,8 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok) {
-        console.error(`${model} failed:`, response.status);
+        const errText = await response.text().catch(() => '');
+        console.error(`${model} failed:`, response.status, errText);
         continue; // Try next model
       }
 
