@@ -62,21 +62,17 @@ export const FuturisticImageEditor = () => {
   const [fullscreenMode, setFullscreenMode] = useState(false);
   const [activeTool, setActiveTool] = useState<"select" | "move" | "analyze">("select");
 
-  // Initialize the futuristic canvas
+  // Initialize the futuristic canvas (once)
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: canvasSize.width,
-      height: canvasSize.height,
-      backgroundColor: "#0a0a0a",
-    });
-
-    // Set dark background
+    const canvas = new FabricCanvas(canvasRef.current);
+    canvas.setDimensions({ width: canvasSize.width, height: canvasSize.height });
     canvas.backgroundColor = "#0a0a0a";
+    canvas.renderAll();
 
     setFabricCanvas(canvas);
-    
+
     toast("Neural Image Editor Initialized", {
       description: "Advanced AI-powered text replacement ready",
       icon: <Brain className="h-4 w-4 text-primary" />
@@ -85,7 +81,7 @@ export const FuturisticImageEditor = () => {
     return () => {
       canvas.dispose();
     };
-  }, [canvasSize]);
+  }, []);
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
