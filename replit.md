@@ -33,7 +33,11 @@ Preferred communication style: Simple, everyday language.
 
 ### AI Integration Strategy
 - **Multi-Provider Approach**: Primary reliance on OpenRouter API with support for multiple AI models
-- **Model Prioritization**: Cost-effective to premium model selection (Gemini Flash → GPT-4o → Claude 3.5 Sonnet)
+- **Model Prioritization**: Cost-effective to premium model selection using verified OpenRouter models:
+  - `google/gemini-2.0-flash-exp` - Fast, optimized for text detection
+  - `google/gemini-2.5-flash-preview` - Best for comprehensive text analysis
+  - `openai/gpt-4o` - Good all-around performance for various tasks
+  - `anthropic/claude-3.5-sonnet` - High accuracy for complex operations
 - **Intelligent Fallback**: Automatic model switching on failure to ensure service reliability
 - **Advanced Analysis**: Text detection with coordinate mapping, confidence scoring, and contextual understanding
 
