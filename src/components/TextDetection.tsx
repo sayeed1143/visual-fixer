@@ -22,7 +22,7 @@ interface TextDetectionProps {
   disabled?: boolean;
 }
 
-export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionProps) => {
+export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }: TextDetectionProps) => {
   const [apiKey, setApiKey] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
 
