@@ -63,23 +63,45 @@ export const AdvancedTextReplacement = ({
 
     try {
       if (useAIStyling) {
-        // Simulate FLUX AI model processing
-        toast.info("AI is analyzing and replacing text...");
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Simulate FLUX model response with edited image
-        const styling = {
-          fontSize,
-          fontFamily,
-          fontWeight,
-          color: textColor,
-          editedImage: imageDataUrl, // In real implementation, this would be the FLUX model output
-          aiGenerated: true
-        };
-        
-        onTextReplace(selectedText.id, replacementText, styling);
-        toast.success("AI text replacement completed!");
+        const apiKey = localStorage.getItem('openrouter_api_key') || '';
+        if (!apiKey) {
+          toast.error('OpenRouter API key required for AI replacement. Add it in Text Detection section.');
+          setIsProcessing(false);
+          return;
+        }
+        const response = await fetch('/api/replace-text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-openrouter-key': apiKey,
+          },
+          body: JSON.stringify({
+            imageDataUrl,
+            originalText: selectedText.text,
+            newText: replacementText,
+            coordinates: { x: selectedText.x, y: selectedText.y, width: selectedText.width, height: selectedText.height },
+            apiKey
+          })
+        });
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err || 'AI text replacement failed');
+        }
+        const data = await response.json();
+        if (data.success && data.editedImage) {
+          const styling = {
+            fontSize,
+            fontFamily,
+            fontWeight,
+            color: textColor,
+            editedImage: data.editedImage,
+            aiGenerated: true
+          };
+          onTextReplace(selectedText.id, replacementText, styling);
+          toast.success("AI text replacement completed!");
+        } else {
+          throw new Error('No edited image returned');
+        }
       } else {
         // Manual styling
         const styling = {
@@ -89,7 +111,6 @@ export const AdvancedTextReplacement = ({
           color: textColor,
           aiGenerated: false
         };
-        
         onTextReplace(selectedText.id, replacementText, styling);
         toast.success("Text replaced successfully!");
       }
@@ -155,7 +176,7 @@ export const AdvancedTextReplacement = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <Wand2 className="mr-2 h-5 w-5 text-purple-500" />
-          <h3 className="font-semibold">Advanced Text Replacement</h3>
+          <h3 className="font-semibold text-white">Advanced Text Replacement</h3>
         </div>
         <Badge variant={selectedText ? "default" : "secondary"}>
           {selectedText ? "Selected" : "None"}
@@ -164,7 +185,7 @@ export const AdvancedTextReplacement = ({
 
       {/* Text Selection */}
       <div className="space-y-3">
-        <Label>Select Text to Replace</Label>
+        <Label className="text-gray-200">Select Text to Replace</Label>
         <div className="max-h-32 overflow-y-auto space-y-1">
           {detectedTexts.map((text) => (
             <div
@@ -177,7 +198,7 @@ export const AdvancedTextReplacement = ({
               onClick={() => handleTextSelect(text)}
             >
               <div className="flex justify-between items-center">
-                <span className="text-sm truncate flex-1">{text.text}</span>
+                <span className="text-sm truncate flex-1 text-white">{text.text}</span>
                 <Badge variant="secondary" className="ml-2">
                   {Math.round(text.confidence * 100)}%
                 </Badge>
@@ -193,13 +214,13 @@ export const AdvancedTextReplacement = ({
           <Separator className="my-4" />
           
           <div className="space-y-3">
-            <Label htmlFor="replacement-text">Replacement Text</Label>
+            <Label htmlFor="replacement-text" className="text-gray-200">Replacement Text</Label>
             <Input
               id="replacement-text"
               value={replacementText}
               onChange={(e) => setReplacementText(e.target.value)}
               placeholder="Enter new text..."
-              className="bg-black/30 border-gray-600"
+              className="bg-black/30 border-gray-600 text-white placeholder:text-gray-400"
             />
           </div>
 
@@ -207,7 +228,7 @@ export const AdvancedTextReplacement = ({
           <div className="flex items-center justify-between mt-4 p-3 bg-black/20 rounded-lg">
             <div className="flex items-center space-x-2">
               <Sparkles className="h-4 w-4 text-purple-500" />
-              <Label htmlFor="ai-styling" className="text-sm">AI-Powered Styling</Label>
+              <Label htmlFor="ai-styling" className="text-sm text-gray-200">AI-Powered Styling</Label>
             </div>
             <Switch
               id="ai-styling"
@@ -220,7 +241,7 @@ export const AdvancedTextReplacement = ({
           {!useAIStyling && (
             <div className="space-y-4 mt-4 p-3 bg-black/20 rounded-lg">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Advanced Styling</Label>
+                <Label className="text-sm text-gray-200">Advanced Styling</Label>
                 <Button
                   variant="outline"
                   size="sm"
@@ -235,7 +256,7 @@ export const AdvancedTextReplacement = ({
 
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="font-size" className="text-xs">Font Size: {fontSize}px</Label>
+                  <Label htmlFor="font-size" className="text-xs text-gray-300">Font Size: {fontSize}px</Label>
                   <Slider
                     id="font-size"
                     min={8}
@@ -248,7 +269,7 @@ export const AdvancedTextReplacement = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="font-family" className="text-xs">Font Family</Label>
+                  <Label htmlFor="font-family" className="text-xs text-gray-300">Font Family</Label>
                   <Select value={fontFamily} onValueChange={setFontFamily}>
                     <SelectTrigger className="bg-black/30 border-gray-600 h-8">
                       <SelectValue />
@@ -262,7 +283,7 @@ export const AdvancedTextReplacement = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="font-weight" className="text-xs">Font Weight</Label>
+                  <Label htmlFor="font-weight" className="text-xs text-gray-300">Font Weight</Label>
                   <Select value={fontWeight} onValueChange={setFontWeight}>
                     <SelectTrigger className="bg-black/30 border-gray-600 h-8">
                       <SelectValue />
@@ -278,7 +299,7 @@ export const AdvancedTextReplacement = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="text-color" className="text-xs">Text Color</Label>
+                  <Label htmlFor="text-color" className="text-xs text-gray-300">Text Color</Label>
                   <div className="flex space-x-2">
                     <Input
                       id="text-color"
