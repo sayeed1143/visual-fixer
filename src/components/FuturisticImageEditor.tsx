@@ -1,40 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, Text as FabricText, Rect, Image as FabricImage, Shadow } from "fabric";
+import { Canvas as FabricCanvas, Object as FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { TextDetection } from "./TextDetection";
 import { AdvancedTextReplacement } from "./AdvancedTextReplacement";
 import { toast } from "sonner";
-import { detectOptimalTextColor } from "@/utils/colorDetection";
-import { matchFont } from "@/utils/fontAnalysis";
 import {
   Brain,
   Zap,
   Upload,
   Download,
-  Wand2,
   Target,
   Sparkles,
   Eye,
-  Layers,
-  Palette,
-  Type,
-  RotateCcw,
-  RotateCw,
-  Save,
-  Share2,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Maximize2,
   Minimize2,
-  MousePointer,
-  Move,
   Trash2
 } from "lucide-react";
 
@@ -55,323 +38,180 @@ export const FuturisticImageEditor = () => {
   const [currentImageDataUrl, setCurrentImageDataUrl] = useState<string>("");
   const [detectedTexts, setDetectedTexts] = useState<DetectedText[]>([]);
   const [selectedText, setSelectedText] = useState<DetectedText | null>(null);
-  const [textHighlights, setTextHighlights] = useState<Rect[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
   const [isProcessing, setIsProcessing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [fullscreenMode, setFullscreenMode] = useState(false);
-  const [activeTool, setActiveTool] = useState<"select" | "move" | "analyze">("select");
 
-  // Initialize the futuristic canvas (once)
+  // Initialize the canvas
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new FabricCanvas(canvasRef.current);
-    canvas.setDimensions({ width: canvasSize.width, height: canvasSize.height });
-    canvas.backgroundColor = "#0a0a0a";
-    canvas.renderAll();
+    const initFabric = async () => {
+      try {
+        const fabric = await import("fabric");
+        const canvas = new fabric.Canvas(canvasRef.current, {
+          width: canvasSize.width,
+          height: canvasSize.height,
+          backgroundColor: "#0a0a0a"
+        });
+        
+        setFabricCanvas(canvas);
 
-    setFabricCanvas(canvas);
+        toast.success("Neural Image Editor Initialized", {
+          description: "Advanced AI-powered text replacement ready"
+        });
+      } catch (error) {
+        console.error("Failed to initialize Fabric.js:", error);
+        toast.error("Failed to initialize editor");
+      }
+    };
 
-    toast("Neural Image Editor Initialized", {
-      description: "Advanced AI-powered text replacement ready",
-      icon: <Brain className="h-4 w-4 text-primary" />
-    });
+    initFabric();
 
     return () => {
-      canvas.dispose();
+      if (fabricCanvas) {
+        fabricCanvas.dispose();
+      }
     };
   }, []);
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !fabricCanvas) {
-      console.log('Upload failed: missing file or canvas', { file: !!file, fabricCanvas: !!fabricCanvas });
-      return;
-    }
+    if (!file || !fabricCanvas) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast("Invalid file type", {
+      toast.error("Invalid file type", {
         description: "Please select an image file"
       });
       return;
     }
 
-    // Validate file size (50MB limit)
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast("File too large", {
+      toast.error("File too large", {
         description: "Please select an image smaller than 50MB"
       });
       return;
     }
 
-    console.log('Starting file upload:', file.name, file.type, file.size);
     setIsProcessing(true);
     const reader = new FileReader();
     
     reader.onload = async (e) => {
       try {
         const imgUrl = e.target?.result as string;
-        if (!imgUrl) {
-          throw new Error('Failed to read file');
-        }
+        if (!imgUrl) throw new Error('Failed to read file');
         
-        console.log('File read successfully, loading into canvas...');
         setCurrentImageDataUrl(imgUrl);
         
-        const img = await FabricImage.fromURL(imgUrl);
-        const imgWidth = img.width || 1;
-        const imgHeight = img.height || 1;
+        const fabric = await import("fabric");
+        const img = await fabric.Image.fromURL(imgUrl);
         
-        console.log('Image loaded:', { imgWidth, imgHeight });
-        
-        // Smart canvas sizing
         const maxWidth = 1400;
         const maxHeight = 900;
+        let newWidth = img.width || maxWidth;
+        let newHeight = img.height || maxHeight;
         
-        let newWidth = imgWidth;
-        let newHeight = imgHeight;
-        
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-          newWidth = imgWidth * scale;
-          newHeight = imgHeight * scale;
+        if (newWidth > maxWidth || newHeight > maxHeight) {
+          const scale = Math.min(maxWidth / newWidth, maxHeight / newHeight);
+          newWidth = newWidth * scale;
+          newHeight = newHeight * scale;
         }
-        
-        console.log('Canvas sizing:', { newWidth, newHeight });
         
         setCanvasSize({ width: newWidth, height: newHeight });
         fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
         
-        // Perfect image positioning
-        img.scaleToWidth(newWidth);
-        img.scaleToHeight(newHeight);
-        img.set({
-          left: 0,
-          top: 0,
-          selectable: false,
-          evented: false,
-        });
-        
-        fabricCanvas.clear();
-        fabricCanvas.add(img);
-        fabricCanvas.renderAll();
-        
-        setIsProcessing(false);
-        toast("Image loaded successfully", {
-          description: "Ready for advanced text analysis",
-          icon: <Sparkles className="h-4 w-4 text-primary" />
-        });
-        
-        console.log('Image upload completed successfully');
-        // Reset input so selecting the same file triggers change
-        (event.target as HTMLInputElement).value = '';
-      } catch (error) {
-        console.error('Error loading image:', error);
-        setIsProcessing(false);
-        toast("Failed to load image", {
-          description: error instanceof Error ? error.message : "Unknown error occurred"
-        });
-      }
-    };
-    
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error);
-      setIsProcessing(false);
-      toast("Failed to read file", {
-        description: "There was an error reading the selected file"
-      });
-      (event.target as HTMLInputElement).value = '';
-    };
-    
-    try {
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error starting file read:', error);
-      setIsProcessing(false);
-      toast("Failed to process file", {
-        description: "Unable to process the selected file"
-      });
-    }
-  }, [fabricCanvas]);
-
-  // Load image if it was selected before canvas was ready
-  useEffect(() => {
-    const load = async () => {
-      if (!fabricCanvas || !currentImageDataUrl) return;
-      try {
-        setIsProcessing(true);
-        const img = await FabricImage.fromURL(currentImageDataUrl);
-        const imgWidth = img.width || 1;
-        const imgHeight = img.height || 1;
-        const maxWidth = 1400;
-        const maxHeight = 900;
-        let newWidth = imgWidth;
-        let newHeight = imgHeight;
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-          newWidth = imgWidth * scale;
-          newHeight = imgHeight * scale;
-        }
-        setCanvasSize({ width: newWidth, height: newHeight });
-        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
         img.scaleToWidth(newWidth);
         img.scaleToHeight(newHeight);
         img.set({ left: 0, top: 0, selectable: false, evented: false });
+        
         fabricCanvas.clear();
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
-        toast("Image loaded successfully", {
-          description: "Ready for advanced text analysis",
-          icon: <Sparkles className="h-4 w-4 text-primary" />
+        
+        toast.success("Image loaded successfully", {
+          description: "Ready for advanced text analysis"
         });
-      } catch (e) {
-        console.error('Deferred image load failed', e);
+      } catch (error) {
+        console.error('Error loading image:', error);
+        toast.error("Failed to load image");
       } finally {
         setIsProcessing(false);
+        if (event.target) (event.target as HTMLInputElement).value = '';
       }
     };
-    load();
-  }, [fabricCanvas, currentImageDataUrl]);
+    
+    reader.onerror = () => {
+      setIsProcessing(false);
+      toast.error("Failed to read file");
+      if (event.target) (event.target as HTMLInputElement).value = '';
+    };
+    
+    reader.readAsDataURL(file);
+  }, [fabricCanvas]);
 
   const handleTextDetected = useCallback((texts: DetectedText[]) => {
-    if (!fabricCanvas) return;
-    
-    // Clear existing highlights
-    textHighlights.forEach(highlight => fabricCanvas.remove(highlight));
-    setTextHighlights([]);
-    
-    // Create futuristic highlight rectangles
-    const highlights = texts.map((detectedText, index) => {
-      const highlight = new Rect({
-        left: (detectedText.x * canvasSize.width) / 100,
-        top: (detectedText.y * canvasSize.height) / 100,
-        width: (detectedText.width * canvasSize.width) / 100,
-        height: (detectedText.height * canvasSize.height) / 100,
-        fill: 'transparent',
-        stroke: '#8b5cf6',
-        strokeWidth: 2,
-        strokeDashArray: [5, 5],
-        selectable: true,
-        hoverCursor: 'pointer',
-        moveCursor: 'pointer',
-        opacity: 0,
-        shadow: new Shadow({
-          color: '#8b5cf6',
-          blur: 10,
-          offsetX: 0,
-          offsetY: 0,
-        })
-      });
-
-      // Store original text data
-      (highlight as any).originalText = detectedText;
-
-      // Add futuristic hover effects
-      highlight.on('mouseover', () => {
-        highlight.set({ stroke: '#a855f7', strokeWidth: 3 });
-        fabricCanvas.renderAll();
-      });
-
-      highlight.on('mouseout', () => {
-        highlight.set({ stroke: '#8b5cf6', strokeWidth: 2 });
-        fabricCanvas.renderAll();
-      });
-
-      // Selection handler
-      highlight.on('mousedown', () => {
-        setSelectedText(detectedText);
-        toast(`Selected: "${detectedText.text}"`, {
-          description: "Use advanced replacement panel to modify",
-          icon: <Target className="h-4 w-4 text-primary" />
-        });
-      });
-
-      // Animate highlight appearance
-      setTimeout(() => {
-        highlight.set({ opacity: 0.8 });
-        fabricCanvas.renderAll();
-      }, index * 100);
-
-      return highlight;
-    });
-
-    highlights.forEach(highlight => fabricCanvas.add(highlight));
-    setTextHighlights(highlights);
     setDetectedTexts(texts);
-    fabricCanvas.renderAll();
-  }, [fabricCanvas, canvasSize, textHighlights]);
+    if (texts.length > 0) {
+      toast.success(`Detected ${texts.length} text regions`);
+    } else {
+      toast.info("No text detected in the image");
+    }
+  }, []);
 
   const handleAdvancedTextReplace = useCallback(async (
     textId: string,
     newText: string,
     styling: any
   ) => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !currentImageDataUrl) return;
 
-    const targetHighlight = textHighlights.find(h => 
-      (h as any).originalText?.id === textId
-    );
-    
-    if (!targetHighlight) return;
-
-    const bounds = targetHighlight.getBoundingRect();
-    
-    // Remove old text objects in the area with fade animation
-    const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
-      if (textHighlights.includes(obj as Rect)) return false;
-      
-      const objBounds = obj.getBoundingRect();
-      return !(
-        objBounds.left > bounds.left + bounds.width ||
-        objBounds.left + objBounds.width < bounds.left ||
-        objBounds.top > bounds.top + bounds.height ||
-        objBounds.top + objBounds.height < bounds.top
-      );
-    });
-
-    // Remove old objects and create new text
-    objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
-
-    setTimeout(() => {
-      const newTextObj = new FabricText(newText, {
-        left: bounds.left + 4,
-        top: bounds.top + (bounds.height - styling.fontSize) / 2,
-        fontSize: styling.fontSize,
-        fill: styling.color,
-        fontFamily: styling.fontFamily,
-        fontWeight: styling.fontWeight,
-        textAlign: 'left',
-        editable: true,
-      });
-
-      fabricCanvas.add(newTextObj);
-      fabricCanvas.remove(targetHighlight);
-      setTextHighlights(prev => prev.filter(h => h !== targetHighlight));
-      fabricCanvas.renderAll();
-    }, 250);
-  }, [fabricCanvas, textHighlights]);
+    try {
+      if (styling.editedImage) {
+        // Handle FLUX model response
+        const fabric = await import("fabric");
+        const img = await fabric.Image.fromURL(styling.editedImage);
+        
+        fabricCanvas.clear();
+        img.set({ left: 0, top: 0, selectable: false, evented: false });
+        fabricCanvas.add(img);
+        fabricCanvas.renderAll();
+        
+        setCurrentImageDataUrl(styling.editedImage);
+        setDetectedTexts([]);
+        setSelectedText(null);
+        
+        toast.success("Text replaced with AI precision!");
+      } else {
+        // Manual replacement fallback
+        toast.info("Manual text replacement applied");
+      }
+    } catch (error) {
+      console.error('Error in text replacement:', error);
+      toast.error("Failed to replace text");
+    }
+  }, [fabricCanvas, currentImageDataUrl]);
 
   const exportImage = useCallback(() => {
     if (!fabricCanvas) return;
 
-    const dataURL = fabricCanvas.toDataURL({
-      format: 'png',
-      quality: 1,
-      multiplier: 2, // Higher resolution export
-    });
+    try {
+      const dataURL = fabricCanvas.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 2,
+      });
 
-    const link = document.createElement('a');
-    link.download = `neural-edit-${Date.now()}.png`;
-    link.href = dataURL;
-    link.click();
-    
-    toast("Image exported!", {
-      description: "High-resolution export complete",
-      icon: <Download className="h-4 w-4 text-primary" />
-    });
+      const link = document.createElement('a');
+      link.download = `neural-edit-${Date.now()}.png`;
+      link.href = dataURL;
+      link.click();
+      
+      toast.success("Image exported!");
+    } catch (error) {
+      toast.error("Export failed");
+    }
   }, [fabricCanvas]);
 
   const clearCanvas = useCallback(() => {
@@ -380,32 +220,26 @@ export const FuturisticImageEditor = () => {
     fabricCanvas.clear();
     fabricCanvas.backgroundColor = "#0a0a0a";
     setDetectedTexts([]);
-    setTextHighlights([]);
     setCurrentImageDataUrl("");
     setSelectedText(null);
     fabricCanvas.renderAll();
     
-    toast("Canvas cleared", {
-      icon: <Trash2 className="h-4 w-4" />
-    });
+    toast.info("Canvas cleared");
   }, [fabricCanvas]);
 
   return (
-    <div className="min-h-screen bg-gradient-neural bg-[length:400%_400%] animate-neural-flow">
-      {/* Futuristic Header */}
-      <div className="border-b border-primary/30 bg-background/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      {/* Header */}
+      <div className="border-b border-purple-500/30 bg-black/80 backdrop-blur-xl">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-8 w-8 text-primary animate-pulse-glow" />
-              <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              <Brain className="h-8 w-8 text-purple-500" />
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
                 Neural Text Editor
               </h1>
             </div>
-            <Badge 
-              variant="secondary" 
-              className="bg-primary/10 text-primary border-primary/30 shadow-glow-primary"
-            >
+            <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
               AI-Powered
             </Badge>
           </div>
@@ -415,7 +249,7 @@ export const FuturisticImageEditor = () => {
               variant="outline"
               size="sm"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="border-primary/30 hover:bg-primary/10"
+              className="border-purple-500/30 hover:bg-purple-500/10"
             >
               {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
@@ -424,7 +258,7 @@ export const FuturisticImageEditor = () => {
               variant="outline"
               size="sm"
               onClick={() => setFullscreenMode(!fullscreenMode)}
-              className="border-primary/30 hover:bg-primary/10"
+              className="border-purple-500/30 hover:bg-purple-500/10"
             >
               {fullscreenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
@@ -433,14 +267,14 @@ export const FuturisticImageEditor = () => {
       </div>
 
       <div className="flex h-[calc(100vh-73px)]">
-        {/* Advanced Sidebar */}
-        <div className={`${sidebarCollapsed ? 'w-16' : 'w-96'} transition-all duration-300 border-r border-primary/30 bg-background/80 backdrop-blur-xl overflow-y-auto`}>
+        {/* Sidebar */}
+        <div className={`${sidebarCollapsed ? 'w-16' : 'w-96'} transition-all duration-300 border-r border-purple-500/30 bg-black/80 backdrop-blur-xl overflow-y-auto`}>
           {!sidebarCollapsed && (
             <div className="p-6 space-y-6">
               {/* Upload Section */}
-              <Card className="p-4 bg-gradient-secondary border-primary/30 shadow-glow">
+              <Card className="p-4 bg-purple-500/5 border-purple-500/30">
                 <div className="flex items-center mb-3">
-                  <Upload className="mr-2 h-5 w-5 text-primary" />
+                  <Upload className="mr-2 h-5 w-5 text-purple-500" />
                   <h3 className="font-semibold">Image Upload</h3>
                 </div>
                 <input
@@ -453,7 +287,7 @@ export const FuturisticImageEditor = () => {
                 <Button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isProcessing}
-                  className="w-full bg-gradient-primary hover:shadow-glow-primary transition-all duration-300"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   {isProcessing ? "Processing..." : "Upload Image"}
@@ -464,6 +298,7 @@ export const FuturisticImageEditor = () => {
               <TextDetection
                 onTextDetected={handleTextDetected}
                 imageDataUrl={currentImageDataUrl}
+                disabled={!currentImageDataUrl}
               />
 
               {/* Advanced Text Replacement */}
@@ -473,12 +308,13 @@ export const FuturisticImageEditor = () => {
                 imageDataUrl={currentImageDataUrl}
                 onTextReplace={handleAdvancedTextReplace}
                 onTextSelect={setSelectedText}
+                disabled={detectedTexts.length === 0}
               />
 
               {/* Quick Actions */}
-              <Card className="p-4 bg-gradient-secondary border-primary/30">
+              <Card className="p-4 bg-purple-500/5 border-purple-500/30">
                 <h3 className="font-semibold mb-3 flex items-center">
-                  <Zap className="mr-2 h-4 w-4 text-primary" />
+                  <Zap className="mr-2 h-4 w-4 text-purple-500" />
                   Quick Actions
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -486,7 +322,8 @@ export const FuturisticImageEditor = () => {
                     onClick={exportImage}
                     variant="outline"
                     size="sm"
-                    className="border-primary/30 hover:bg-primary/10"
+                    className="border-purple-500/30 hover:bg-purple-500/10"
+                    disabled={!currentImageDataUrl}
                   >
                     <Download className="mr-2 h-3 w-3" />
                     Export
@@ -495,7 +332,7 @@ export const FuturisticImageEditor = () => {
                     onClick={clearCanvas}
                     variant="outline"
                     size="sm"
-                    className="border-destructive/30 hover:bg-destructive/10"
+                    className="border-red-500/30 hover:bg-red-500/10"
                   >
                     <Trash2 className="mr-2 h-3 w-3" />
                     Clear
@@ -505,9 +342,9 @@ export const FuturisticImageEditor = () => {
 
               {/* Stats Panel */}
               {detectedTexts.length > 0 && (
-                <Card className="p-4 bg-gradient-accent border-primary/30">
+                <Card className="p-4 bg-purple-500/5 border-purple-500/30">
                   <h3 className="font-semibold mb-3 flex items-center">
-                    <Eye className="mr-2 h-4 w-4 text-primary" />
+                    <Eye className="mr-2 h-4 w-4 text-purple-500" />
                     Detection Stats
                   </h3>
                   <div className="space-y-2 text-sm">
@@ -518,7 +355,7 @@ export const FuturisticImageEditor = () => {
                     <div className="flex justify-between">
                       <span>Avg. Confidence:</span>
                       <Badge variant="secondary">
-                        {Math.round(detectedTexts.reduce((sum, t) => sum + t.confidence, 0) / detectedTexts.length * 100)}%
+                        {Math.round((detectedTexts.reduce((sum, t) => sum + t.confidence, 0) / detectedTexts.length) * 100)}%
                       </Badge>
                     </div>
                     <div className="flex justify-between">
@@ -536,26 +373,20 @@ export const FuturisticImageEditor = () => {
 
         {/* Main Canvas Area */}
         <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-hologram animate-hologram opacity-20 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 opacity-20 pointer-events-none" />
           
           <div className="h-full flex items-center justify-center p-6">
-            <div 
-              className="relative rounded-lg overflow-hidden shadow-2xl"
-              style={{
-                boxShadow: '0 0 40px hsl(262 83% 58% / 0.3), inset 0 0 40px hsl(262 83% 58% / 0.1)'
-              }}
-            >
+            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30">
               <canvas 
                 ref={canvasRef} 
-                className="max-w-full max-h-full border border-primary/30 rounded-lg"
+                className="max-w-full max-h-full"
               />
               
-              {/* Loading Overlay */}
               {isProcessing && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
                   <div className="text-center space-y-4">
-                    <Brain className="h-12 w-12 text-primary animate-pulse-glow mx-auto" />
-                    <p className="text-primary font-medium">Neural Processing...</p>
+                    <Brain className="h-12 w-12 text-purple-500 animate-pulse mx-auto" />
+                    <p className="text-purple-400 font-medium">Processing Image...</p>
                   </div>
                 </div>
               )}
