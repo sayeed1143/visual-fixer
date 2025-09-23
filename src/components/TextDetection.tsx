@@ -277,7 +277,7 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="Enter API key for hosted models"
-          className="bg-black/30 border-gray-600"
+          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground"
         />
 
         <div className="grid grid-cols-1 gap-2">
