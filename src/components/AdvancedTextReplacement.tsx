@@ -64,28 +64,32 @@ export const AdvancedTextReplacement = ({
     try {
       if (useAIStyling) {
         const apiKey = localStorage.getItem('openrouter_api_key') || '';
-        if (!apiKey) {
-          toast.error('OpenRouter API key required for AI replacement. Add it in Text Detection section.');
-          setIsProcessing(false);
-          return;
-        }
         const response = await fetch('/api/replace-text', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-openrouter-key': apiKey,
+            ...(apiKey ? { 'x-openrouter-key': apiKey } : {}),
           },
           body: JSON.stringify({
             imageDataUrl,
             originalText: selectedText.text,
             newText: replacementText,
-            coordinates: { x: selectedText.x, y: selectedText.y, width: selectedText.width, height: selectedText.height },
-            apiKey
+            coordinates: { x: selectedText.x, y: selectedText.y, width: selectedText.width, height: selectedText.height }
           })
         });
         if (!response.ok) {
-          const err = await response.text();
-          throw new Error(err || 'AI text replacement failed');
+          let message = 'AI text replacement failed';
+          try {
+            const err = await response.json();
+            message = typeof err === 'string' ? err : (err.error || message);
+          } catch {
+            const errText = await response.text();
+            if (errText) message = errText;
+          }
+          if (message.includes('MISSING_API_KEY')) {
+            toast.error('Missing OpenRouter API key. Enter it in Text Detection or set OPENROUTER_API_KEY in the server env.');
+          }
+          throw new Error(message);
         }
         const data = await response.json();
         if (data.success && data.editedImage) {
@@ -98,12 +102,11 @@ export const AdvancedTextReplacement = ({
             aiGenerated: true
           };
           onTextReplace(selectedText.id, replacementText, styling);
-          toast.success("AI text replacement completed!");
+          toast.success('AI text replacement completed!');
         } else {
           throw new Error('No edited image returned');
         }
       } else {
-        // Manual styling
         const styling = {
           fontSize,
           fontFamily,
@@ -112,11 +115,12 @@ export const AdvancedTextReplacement = ({
           aiGenerated: false
         };
         onTextReplace(selectedText.id, replacementText, styling);
-        toast.success("Text replaced successfully!");
+        toast.success('Text replaced successfully!');
       }
     } catch (error) {
-      console.error("Text replacement error:", error);
-      toast.error("Failed to replace text");
+      console.error('Text replacement error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to replace text';
+      toast.error(message);
     } finally {
       setIsProcessing(false);
     }
