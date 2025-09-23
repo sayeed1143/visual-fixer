@@ -1,13 +1,10 @@
 {
   "functions": {
-    "api/detect-text.js": {
-      "maxDuration": 30
-    }
+    "api/detect-text.js": { "maxDuration": 30 },
+    "api/replace-text.js": { "maxDuration": 30 },
+    "api/edit-image.js": { "maxDuration": 30 }
   },
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
