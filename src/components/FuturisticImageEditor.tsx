@@ -376,7 +376,7 @@ export const FuturisticImageEditor = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 opacity-20 pointer-events-none" />
           
           <div className="h-full flex items-center justify-center p-6">
-            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30">
+            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30" style={{ width: canvasSize.width, height: canvasSize.height }}>
               <canvas
                 ref={canvasRef}
                 className="max-w-full max-h-full"
