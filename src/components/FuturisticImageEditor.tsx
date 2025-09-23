@@ -228,7 +228,7 @@ export const FuturisticImageEditor = () => {
   }, [fabricCanvas]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <div className="dark min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
       {/* Header */}
       <div className="border-b border-purple-500/30 bg-black/80 backdrop-blur-xl">
         <div className="flex items-center justify-between p-4">
