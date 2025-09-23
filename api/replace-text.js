@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const models = [
     'black-forest-labs/flux-1.1-pro',
     'black-forest-labs/flux-1.1-schnell',
-    'stability-ai/stable-diffusion'
+    'stability-ai/sd3'
   ];
 
   const prompt = coordinates
@@ -67,7 +67,10 @@ export default async function handler(req, res) {
           modalities: ['image']
         }),
       });
-      if (!response.ok) continue;
+      if (!response.ok) {
+        try { console.error(`${model} replace-text failed:`, response.status, await response.text()); } catch {}
+        continue;
+      }
       const data = await response.json();
       const img = extractImageFromResponse(data);
       if (img) return res.status(200).json({ success: true, editedImage: img, model });

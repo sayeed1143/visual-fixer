@@ -70,7 +70,7 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-preview',
+      'openai/gpt-4o-mini',
       'openai/gpt-4o',
       'anthropic/claude-3.5-sonnet'
     ];
@@ -102,6 +102,7 @@ app.post('/api/detect-text', async (req, res) => {
         });
 
         if (!response.ok) {
+          try { console.error(`${model} detect-text failed:`, response.status, await response.text()); } catch {}
           continue;
         }
 
