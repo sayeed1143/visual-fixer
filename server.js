@@ -12,9 +12,23 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// CORS middleware
+// CORS middleware - restrict to localhost and replit domains for security
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    /\.replit\.dev$/,
+    /\.repl\.co$/
+  ];
+  
+  if (allowedOrigins.some(allowed => {
+    if (typeof allowed === 'string') return origin === allowed;
+    return origin && allowed.test(origin);
+  })) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-openrouter-key');
   if (req.method === 'OPTIONS') {
@@ -32,7 +46,16 @@ const getOpenRouterKey = (req) => {
 
 // Helper to safely extract an image (base64 or URL) from OpenRouter response
 const extractImageFromResponse = (data) => {
-  const choice = data?.choices?.[0]?.message?.content;
+  // New OpenRouter format: check images field first
+  const message = data?.choices?.[0]?.message;
+  if (message?.images && message.images.length > 0) {
+    const image = message.images[0];
+    if (image?.image_url?.url) return image.image_url.url;
+    if (image?.url) return image.url;
+  }
+  
+  // Legacy format: check content field
+  const choice = message?.content;
   if (!choice) return null;
   // If content is an array, look for image-like items
   if (Array.isArray(choice)) {
@@ -69,9 +92,10 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-preview',
       'openai/gpt-4o',
-      'anthropic/claude-3.5-sonnet'
+      'anthropic/claude-3.5-sonnet:beta',
+      'qwen/qwen-2-vl-72b-instruct',
+      'meta-llama/llama-3.2-90b-vision-instruct'
     ];
 
     const prompt = `Analyze this image and detect all text elements with high precision. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100 from top-left), width/height (as percentages), and confidence (0-1). Be very accurate with positioning for text replacement. Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]`;
@@ -101,6 +125,8 @@ app.post('/api/detect-text', async (req, res) => {
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`Model ${model} failed with status ${response.status}:`, errorText);
           continue;
         }
 
@@ -125,6 +151,7 @@ app.post('/api/detect-text', async (req, res) => {
           return res.status(200).json({ success: true, detectedTexts, model });
         }
       } catch (error) {
+        console.log(`Model ${model} failed:`, error.message);
         // try next model
         continue;
       }
@@ -150,9 +177,9 @@ app.post('/api/edit-image', async (req, res) => {
     }
 
     const models = [
+      'google/gemini-2.5-flash-image-preview',
       'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-1.1-schnell',
-      'stability-ai/stable-diffusion'
+      'stability-ai/stable-diffusion-3.5-large'
     ];
 
     for (const model of models) {
@@ -176,16 +203,20 @@ app.post('/api/edit-image', async (req, res) => {
             ],
             max_tokens: 1000,
             temperature: 0.7,
-            modalities: ['image']
+            modalities: ['image', 'text']
           }),
         });
         if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`Model ${model} failed with status ${response.status}:`, errorText);
           continue;
         }
         const data = await response.json();
         const img = extractImageFromResponse(data);
         if (img) {
           return res.status(200).json({ success: true, editedImage: img, model });
+        } else {
+          console.log(`Model ${model} returned no image. Response structure:`, JSON.stringify(data, null, 2));
         }
       } catch (e) {
         // try next model
@@ -213,9 +244,9 @@ app.post('/api/replace-text', async (req, res) => {
     }
 
     const models = [
+      'google/gemini-2.5-flash-image-preview',
       'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-1.1-schnell',
-      'stability-ai/stable-diffusion'
+      'stability-ai/stable-diffusion-3.5-large'
     ];
 
     const prompt = coordinates
@@ -237,16 +268,20 @@ app.post('/api/replace-text', async (req, res) => {
             ],
             max_tokens: 1000,
             temperature: 0.3,
-            modalities: ['image']
+            modalities: ['image', 'text']
           }),
         });
         if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`Model ${model} failed with status ${response.status}:`, errorText);
           continue;
         }
         const data = await response.json();
         const img = extractImageFromResponse(data);
         if (img) {
           return res.status(200).json({ success: true, editedImage: img, model });
+        } else {
+          console.log(`Model ${model} returned no image. Response structure:`, JSON.stringify(data, null, 2));
         }
       } catch (e) {
         // try next model
