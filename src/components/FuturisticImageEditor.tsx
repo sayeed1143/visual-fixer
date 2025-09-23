@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricText, Rect, Circle, FabricImage, Shadow } from "fabric";
+import { Canvas as FabricCanvas, Text as FabricText, Rect, Image as FabricImage, Shadow } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -12,11 +12,11 @@ import { AdvancedTextReplacement } from "./AdvancedTextReplacement";
 import { toast } from "sonner";
 import { detectOptimalTextColor } from "@/utils/colorDetection";
 import { matchFont } from "@/utils/fontAnalysis";
-import { 
+import {
   Brain,
-  Zap, 
-  Upload, 
-  Download, 
+  Zap,
+  Upload,
+  Download,
   Wand2,
   Target,
   Sparkles,
