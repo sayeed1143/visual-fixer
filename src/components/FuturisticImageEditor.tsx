@@ -89,18 +89,47 @@ export const FuturisticImageEditor = () => {
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !fabricCanvas) return;
+    if (!file || !fabricCanvas) {
+      console.log('Upload failed: missing file or canvas', { file: !!file, fabricCanvas: !!fabricCanvas });
+      return;
+    }
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast("Invalid file type", {
+        description: "Please select an image file"
+      });
+      return;
+    }
+
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      toast("File too large", {
+        description: "Please select an image smaller than 50MB"
+      });
+      return;
+    }
+
+    console.log('Starting file upload:', file.name, file.type, file.size);
     setIsProcessing(true);
     const reader = new FileReader();
     
-    reader.onload = (e) => {
-      const imgUrl = e.target?.result as string;
-      setCurrentImageDataUrl(imgUrl);
-      
-      FabricImage.fromURL(imgUrl).then((img) => {
+    reader.onload = async (e) => {
+      try {
+        const imgUrl = e.target?.result as string;
+        if (!imgUrl) {
+          throw new Error('Failed to read file');
+        }
+        
+        console.log('File read successfully, loading into canvas...');
+        setCurrentImageDataUrl(imgUrl);
+        
+        const img = await FabricImage.fromURL(imgUrl);
         const imgWidth = img.width || 1;
         const imgHeight = img.height || 1;
+        
+        console.log('Image loaded:', { imgWidth, imgHeight });
         
         // Smart canvas sizing
         const maxWidth = 1400;
@@ -114,6 +143,8 @@ export const FuturisticImageEditor = () => {
           newWidth = imgWidth * scale;
           newHeight = imgHeight * scale;
         }
+        
+        console.log('Canvas sizing:', { newWidth, newHeight });
         
         setCanvasSize({ width: newWidth, height: newHeight });
         fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
@@ -137,10 +168,34 @@ export const FuturisticImageEditor = () => {
           description: "Ready for advanced text analysis",
           icon: <Sparkles className="h-4 w-4 text-primary" />
         });
+        
+        console.log('Image upload completed successfully');
+      } catch (error) {
+        console.error('Error loading image:', error);
+        setIsProcessing(false);
+        toast("Failed to load image", {
+          description: error instanceof Error ? error.message : "Unknown error occurred"
+        });
+      }
+    };
+    
+    reader.onerror = (error) => {
+      console.error('FileReader error:', error);
+      setIsProcessing(false);
+      toast("Failed to read file", {
+        description: "There was an error reading the selected file"
       });
     };
     
-    reader.readAsDataURL(file);
+    try {
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error starting file read:', error);
+      setIsProcessing(false);
+      toast("Failed to process file", {
+        description: "Unable to process the selected file"
+      });
+    }
   }, [fabricCanvas]);
 
   const handleTextDetected = useCallback((texts: DetectedText[]) => {
