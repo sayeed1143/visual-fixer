@@ -69,15 +69,24 @@ export default {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-secondary': 'var(--gradient-secondary)',
         'gradient-accent': 'var(--gradient-accent)',
+        'gradient-neural': 'var(--gradient-neural)',
+        'gradient-cyber': 'var(--gradient-cyber)',
+        'gradient-hologram': 'var(--gradient-hologram)',
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
         'md': 'var(--shadow-md)', 
         'lg': 'var(--shadow-lg)',
         'glow': 'var(--shadow-glow)',
+        'glow-primary': 'var(--glow-primary)',
+        'glow-secondary': 'var(--glow-secondary)',
+        'neon': 'var(--neon-border)',
+        'text-glow': 'var(--text-glow)',
       },
       transitionTimingFunction: {
         'smooth': 'var(--transition)',
+        'fast': 'var(--transition-fast)',
+        'slow': 'var(--transition-slow)',
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -101,10 +110,41 @@ export default {
             height: "0",
           },
         },
+        "pulse-glow": {
+          "0%, 100%": {
+            opacity: "1",
+            transform: "scale(1)",
+          },
+          "50%": {
+            opacity: "0.8",
+            transform: "scale(1.05)",
+          },
+        },
+        "neural-flow": {
+          "0%, 100%": {
+            backgroundPosition: "0% 50%",
+          },
+          "50%": {
+            backgroundPosition: "100% 50%",
+          },
+        },
+        "hologram": {
+          "0%, 100%": {
+            transform: "translateX(0)",
+            opacity: "0.7",
+          },
+          "50%": {
+            transform: "translateX(10px)",
+            opacity: "1",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "neural-flow": "neural-flow 3s ease-in-out infinite",
+        "hologram": "hologram 4s ease-in-out infinite",
       },
     },
   },

@@ -118,16 +118,16 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
   };
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 bg-gradient-secondary border-primary/30 shadow-glow">
       <h3 className="font-semibold mb-3 text-foreground flex items-center">
-        <Eye className="mr-2 h-4 w-4" />
-        Auto Text Detection
+        <Eye className="mr-2 h-4 w-4 text-primary animate-pulse-glow" />
+        🧠 Neural Text Detection
       </h3>
       
       <div className="space-y-4">
         <div className="bg-muted/50 p-3 rounded-lg">
           <p className="text-xs text-muted-foreground">
-            AI text detection uses multiple models: Gemini 2.5 Flash → GPT-4o → Claude 3.5 Sonnet with automatic fallback for best results.
+            🧠 Advanced AI models with fallback system: Gemini 2.5 Flash → GPT-4o → Claude 3.5 Sonnet for maximum accuracy and seamless text replacement.
           </p>
         </div>
 
@@ -135,20 +135,20 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
           <Button 
             onClick={detectTextWithOpenRouter}
             disabled={isDetecting}
-            className="w-full"
+            className="w-full bg-gradient-primary hover:shadow-glow-primary transition-all duration-300"
           >
             <Zap className="mr-2 h-4 w-4" />
-            {isDetecting ? "Detecting..." : "AI Multi-Model Detection"}
+            {isDetecting ? "🧠 Analyzing..." : "🚀 AI Neural Detection"}
           </Button>
           
           <Button 
             onClick={detectTextWithTesseract}
             disabled={isDetecting}
             variant="outline" 
-            className="w-full"
+            className="w-full border-primary/30 hover:bg-primary/10"
           >
             <Eye className="mr-2 h-4 w-4" />
-            {isDetecting ? "Detecting..." : "OCR Text Detection"}
+            {isDetecting ? "⚡ Processing..." : "🔍 OCR Detection"}
           </Button>
         </div>
       </div>
