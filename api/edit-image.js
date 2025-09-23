@@ -18,9 +18,10 @@ export default async function handler(req, res) {
   }
 
   const models = [
-    'black-forest-labs/flux-1.1-pro',
-    'black-forest-labs/flux-1.1-schnell',
-    'stability-ai/stable-diffusion'
+    'google/gemini-2.0-flash-exp',
+    'google/gemini-2.5-flash-preview',
+    'openai/gpt-4o',
+    'anthropic/claude-3.5-sonnet'
   ];
 
   const extractImageFromResponse = (data) => {

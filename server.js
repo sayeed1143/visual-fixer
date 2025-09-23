@@ -92,10 +92,10 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
+      'google/gemini-2.0-flash-exp',
+      'google/gemini-2.5-flash-preview',
       'openai/gpt-4o',
-      'anthropic/claude-3.5-sonnet:beta',
-      'qwen/qwen-2-vl-72b-instruct',
-      'meta-llama/llama-3.2-90b-vision-instruct'
+      'anthropic/claude-3.5-sonnet'
     ];
 
     const prompt = `Analyze this image and detect all text elements with high precision. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100 from top-left), width/height (as percentages), and confidence (0-1). Be very accurate with positioning for text replacement. Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]`;
@@ -177,9 +177,10 @@ app.post('/api/edit-image', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-image-preview',
-      'black-forest-labs/flux-1.1-pro',
-      'stability-ai/stable-diffusion-3.5-large'
+      'google/gemini-2.0-flash-exp',
+      'google/gemini-2.5-flash-preview',
+      'openai/gpt-4o',
+      'anthropic/claude-3.5-sonnet'
     ];
 
     for (const model of models) {
@@ -244,9 +245,10 @@ app.post('/api/replace-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.5-flash-image-preview',
-      'black-forest-labs/flux-1.1-pro',
-      'stability-ai/stable-diffusion-3.5-large'
+      'google/gemini-2.0-flash-exp',
+      'google/gemini-2.5-flash-preview',
+      'openai/gpt-4o',
+      'anthropic/claude-3.5-sonnet'
     ];
 
     const prompt = coordinates

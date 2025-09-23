@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   // Enable CORS for development
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-openrouter-key');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -18,13 +18,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Image data is required' });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const headerKey = req.headers['x-openrouter-key'];
+  const apiKey = headerKey || process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'OpenRouter API key not configured' });
+    return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
   }
 
   // Models in order of preference: cost-effective -> premium -> precise
   const models = [
+    'google/gemini-2.0-flash-exp',
     'google/gemini-2.5-flash-preview',
     'openai/gpt-4o',
     'anthropic/claude-3.5-sonnet'
