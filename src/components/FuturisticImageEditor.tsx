@@ -406,7 +406,7 @@ export const FuturisticImageEditor = () => {
                       >
                         <button
                           type="button"
-                          className="absolute -top-6 left-0 text-xs px-2 py-0.5 rounded bg-black/70 text-white border border-purple-500/40 pointer-events-auto"
+                          className="absolute top-0 left-0 text-xs px-1.5 py-0.5 rounded-br bg-black/70 text-white border border-purple-500/40 pointer-events-auto"
                           onClick={() => setSelectedText(t)}
                           title={`Select: ${t.text}`}
                         >
