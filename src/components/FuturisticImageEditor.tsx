@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricText, Rect, Circle, FabricImage, Shadow } from "fabric";
+import { Canvas as FabricCanvas, Text as FabricText, Rect, Image as FabricImage, Shadow } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -12,11 +12,11 @@ import { AdvancedTextReplacement } from "./AdvancedTextReplacement";
 import { toast } from "sonner";
 import { detectOptimalTextColor } from "@/utils/colorDetection";
 import { matchFont } from "@/utils/fontAnalysis";
-import { 
+import {
   Brain,
-  Zap, 
-  Upload, 
-  Download, 
+  Zap,
+  Upload,
+  Download,
   Wand2,
   Target,
   Sparkles,
@@ -62,21 +62,17 @@ export const FuturisticImageEditor = () => {
   const [fullscreenMode, setFullscreenMode] = useState(false);
   const [activeTool, setActiveTool] = useState<"select" | "move" | "analyze">("select");
 
-  // Initialize the futuristic canvas
+  // Initialize the futuristic canvas (once)
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: canvasSize.width,
-      height: canvasSize.height,
-      backgroundColor: "#0a0a0a",
-    });
-
-    // Set dark background
+    const canvas = new FabricCanvas(canvasRef.current);
+    canvas.setDimensions({ width: canvasSize.width, height: canvasSize.height });
     canvas.backgroundColor = "#0a0a0a";
+    canvas.renderAll();
 
     setFabricCanvas(canvas);
-    
+
     toast("Neural Image Editor Initialized", {
       description: "Advanced AI-powered text replacement ready",
       icon: <Brain className="h-4 w-4 text-primary" />
@@ -85,7 +81,7 @@ export const FuturisticImageEditor = () => {
     return () => {
       canvas.dispose();
     };
-  }, [canvasSize]);
+  }, []);
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -170,6 +166,8 @@ export const FuturisticImageEditor = () => {
         });
         
         console.log('Image upload completed successfully');
+        // Reset input so selecting the same file triggers change
+        (event.target as HTMLInputElement).value = '';
       } catch (error) {
         console.error('Error loading image:', error);
         setIsProcessing(false);
@@ -185,6 +183,7 @@ export const FuturisticImageEditor = () => {
       toast("Failed to read file", {
         description: "There was an error reading the selected file"
       });
+      (event.target as HTMLInputElement).value = '';
     };
     
     try {
@@ -197,6 +196,45 @@ export const FuturisticImageEditor = () => {
       });
     }
   }, [fabricCanvas]);
+
+  // Load image if it was selected before canvas was ready
+  useEffect(() => {
+    const load = async () => {
+      if (!fabricCanvas || !currentImageDataUrl) return;
+      try {
+        setIsProcessing(true);
+        const img = await FabricImage.fromURL(currentImageDataUrl);
+        const imgWidth = img.width || 1;
+        const imgHeight = img.height || 1;
+        const maxWidth = 1400;
+        const maxHeight = 900;
+        let newWidth = imgWidth;
+        let newHeight = imgHeight;
+        if (imgWidth > maxWidth || imgHeight > maxHeight) {
+          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+          newWidth = imgWidth * scale;
+          newHeight = imgHeight * scale;
+        }
+        setCanvasSize({ width: newWidth, height: newHeight });
+        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
+        img.scaleToWidth(newWidth);
+        img.scaleToHeight(newHeight);
+        img.set({ left: 0, top: 0, selectable: false, evented: false });
+        fabricCanvas.clear();
+        fabricCanvas.add(img);
+        fabricCanvas.renderAll();
+        toast("Image loaded successfully", {
+          description: "Ready for advanced text analysis",
+          icon: <Sparkles className="h-4 w-4 text-primary" />
+        });
+      } catch (e) {
+        console.error('Deferred image load failed', e);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+    load();
+  }, [fabricCanvas, currentImageDataUrl]);
 
   const handleTextDetected = useCallback((texts: DetectedText[]) => {
     if (!fabricCanvas) return;

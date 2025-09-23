@@ -25,6 +25,31 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
   const [apiKey, setApiKey] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
 
+  // Downscale and compress data URL to fit serverless limits (~4.5MB on Vercel)
+  const compressDataUrl = async (dataUrl: string, maxDim = 1600, quality = 0.85): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas context not available'));
+        ctx.drawImage(img, 0, 0, width, height);
+        // Prefer JPEG for better compression on photos/screenshots
+        const out = canvas.toDataURL('image/jpeg', quality);
+        resolve(out);
+      };
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+      img.src = dataUrl;
+    });
+  };
+
   const detectTextWithOpenRouter = async () => {
     if (!imageDataUrl) {
       toast("Please upload an image first");
@@ -32,24 +57,35 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
     }
 
     setIsDetecting(true);
-    
+
     try {
+      const originalSizeKB = Math.round((imageDataUrl.length * 3) / 4 / 1024);
+      const compressed = await compressDataUrl(imageDataUrl);
+      const compressedSizeKB = Math.round((compressed.length * 3) / 4 / 1024);
+      if (compressedSizeKB < originalSizeKB) {
+        toast(`Optimized image: ${compressedSizeKB}KB (was ${originalSizeKB}KB)`);
+      }
+
       const response = await fetch('/api/detect-text', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageDataUrl
+          imageDataUrl: compressed
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to detect text with AI models');
+        if (response.status === 413) {
+          throw new Error('Image too large for serverless function');
+        }
+        const text = await response.text();
+        throw new Error(text || 'Failed to detect text with AI models');
       }
 
       const data = await response.json();
-      
+
       if (data.success && data.detectedTexts) {
         const detectedTexts: DetectedText[] = data.detectedTexts.map((item: any) => ({
           id: item.id,
@@ -60,7 +96,7 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
           height: item.height,
           confidence: item.confidence
         }));
-        
+
         onTextDetected(detectedTexts);
         toast(`Detected ${detectedTexts.length} text elements using ${data.model}!`);
       } else {
@@ -68,7 +104,12 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
       }
     } catch (error) {
       console.error('Text detection error:', error);
-      toast("Failed to detect text with AI models");
+      const message = error instanceof Error ? error.message : 'Failed to detect text with AI models';
+      if (message.includes('too large')) {
+        toast('Image too large. Try a smaller screenshot or use OCR Detection.');
+      } else {
+        toast(message);
+      }
     } finally {
       setIsDetecting(false);
     }
