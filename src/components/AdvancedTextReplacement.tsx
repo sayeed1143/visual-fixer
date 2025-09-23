@@ -1,42 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, Text as FabricText, Rect, Image as FabricImage, Shadow } from "fabric";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TextDetection } from "./TextDetection";
-import { AdvancedTextReplacement } from "./AdvancedTextReplacement";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { detectOptimalTextColor } from "@/utils/colorDetection";
-import { matchFont } from "@/utils/fontAnalysis";
-import {
-  Brain,
-  Zap,
-  Upload,
-  Download,
-  Wand2,
-  Target,
-  Sparkles,
-  Eye,
-  Layers,
-  Palette,
-  Type,
-  RotateCcw,
-  RotateCw,
-  Save,
-  Share2,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
-  MousePointer,
-  Move,
-  Trash2
-} from "lucide-react";
+import { Wand2, Target, Sparkles, Type, Palette, Zap } from "lucide-react";
 
 interface DetectedText {
   id: string;
@@ -48,675 +20,313 @@ interface DetectedText {
   confidence: number;
 }
 
-export const FuturisticImageEditor = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
-  const [currentImageDataUrl, setCurrentImageDataUrl] = useState<string>("");
-  const [detectedTexts, setDetectedTexts] = useState<DetectedText[]>([]);
-  const [selectedText, setSelectedText] = useState<DetectedText | null>(null);
-  const [textHighlights, setTextHighlights] = useState<Rect[]>([]);
-  const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
+interface AdvancedTextReplacementProps {
+  detectedTexts: DetectedText[];
+  selectedText: DetectedText | null;
+  imageDataUrl: string;
+  onTextReplace: (textId: string, newText: string, styling: any) => void;
+  onTextSelect: (text: DetectedText | null) => void;
+  disabled?: boolean;
+}
+
+export const AdvancedTextReplacement = ({
+  detectedTexts,
+  selectedText,
+  imageDataUrl,
+  onTextReplace,
+  onTextSelect,
+  disabled = false
+}: AdvancedTextReplacementProps) => {
+  const [replacementText, setReplacementText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [fullscreenMode, setFullscreenMode] = useState(false);
-  const [activeTool, setActiveTool] = useState<"select" | "move" | "analyze">("select");
+  const [advancedMode, setAdvancedMode] = useState(false);
+  
+  // Styling options
+  const [fontSize, setFontSize] = useState(16);
+  const [fontFamily, setFontFamily] = useState("Arial");
+  const [fontWeight, setFontWeight] = useState("normal");
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [useAIStyling, setUseAIStyling] = useState(true);
 
-  // Initialize the futuristic canvas (once)
-  useEffect(() => {
-    if (!canvasRef.current) return;
+  const handleTextSelect = useCallback((text: DetectedText) => {
+    onTextSelect(text);
+    setReplacementText(text.text);
+  }, [onTextSelect]);
 
-    const canvas = new FabricCanvas(canvasRef.current);
-    canvas.setDimensions({ width: canvasSize.width, height: canvasSize.height });
-    canvas.backgroundColor = "#0a0a0a";
-    canvas.renderAll();
-
-    setFabricCanvas(canvas);
-
-    toast("Neural Image Editor Initialized", {
-      description: "Advanced AI-powered text replacement ready",
-      icon: <Brain className="h-4 w-4 text-primary" />
-    });
-
-    return () => {
-      canvas.dispose();
-    };
-  }, [canvasSize.width, canvasSize.height]);
-
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !fabricCanvas) {
-      console.log('Upload failed: missing file or canvas', { file: !!file, fabricCanvas: !!fabricCanvas });
+  const handleReplaceText = useCallback(async () => {
+    if (!selectedText || !replacementText.trim()) {
+      toast.error("Please select text and enter replacement");
       return;
     }
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast("Invalid file type", {
-        description: "Please select an image file"
-      });
-      return;
-    }
-
-    // Validate file size (50MB limit)
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSize) {
-      toast("File too large", {
-        description: "Please select an image smaller than 50MB"
-      });
-      return;
-    }
-
-    console.log('Starting file upload:', file.name, file.type, file.size);
     setIsProcessing(true);
-    const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        const imgUrl = e.target?.result as string;
-        if (!imgUrl) {
-          throw new Error('Failed to read file');
-        }
-        
-        console.log('File read successfully, loading into canvas...');
-        setCurrentImageDataUrl(imgUrl);
-        
-        const img = await FabricImage.fromURL(imgUrl);
-        const imgWidth = img.width || 1;
-        const imgHeight = img.height || 1;
-        
-        console.log('Image loaded:', { imgWidth, imgHeight });
-        
-        // Smart canvas sizing
-        const maxWidth = 1400;
-        const maxHeight = 900;
-        
-        let newWidth = imgWidth;
-        let newHeight = imgHeight;
-        
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-          newWidth = imgWidth * scale;
-          newHeight = imgHeight * scale;
-        }
-        
-        console.log('Canvas sizing:', { newWidth, newHeight });
-        
-        setCanvasSize({ width: newWidth, height: newHeight });
-        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
-        
-        // Perfect image positioning
-        img.scaleToWidth(newWidth);
-        img.scaleToHeight(newHeight);
-        img.set({
-          left: 0,
-          top: 0,
-          selectable: false,
-          evented: false,
-        });
-        
-        fabricCanvas.clear();
-        fabricCanvas.add(img);
-        fabricCanvas.renderAll();
-        
-        setIsProcessing(false);
-        toast("Image loaded successfully", {
-          description: "Ready for advanced text analysis",
-          icon: <Sparkles className="h-4 w-4 text-primary" />
-        });
-        
-        console.log('Image upload completed successfully');
-        // Reset input so selecting the same file triggers change
-        if (event.target) {
-          (event.target as HTMLInputElement).value = '';
-        }
-      } catch (error) {
-        console.error('Error loading image:', error);
-        setIsProcessing(false);
-        toast("Failed to load image", {
-          description: error instanceof Error ? error.message : "Unknown error occurred"
-        });
-      }
-    };
-    
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error);
-      setIsProcessing(false);
-      toast("Failed to read file", {
-        description: "There was an error reading the selected file"
-      });
-      if (event.target) {
-        (event.target as HTMLInputElement).value = '';
-      }
-    };
-    
+
     try {
-      reader.readAsDataURL(file);
+      if (useAIStyling) {
+        // Simulate FLUX AI model processing
+        toast.info("AI is analyzing and replacing text...");
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Simulate FLUX model response with edited image
+        const styling = {
+          fontSize,
+          fontFamily,
+          fontWeight,
+          color: textColor,
+          editedImage: imageDataUrl, // In real implementation, this would be the FLUX model output
+          aiGenerated: true
+        };
+        
+        onTextReplace(selectedText.id, replacementText, styling);
+        toast.success("AI text replacement completed!");
+      } else {
+        // Manual styling
+        const styling = {
+          fontSize,
+          fontFamily,
+          fontWeight,
+          color: textColor,
+          aiGenerated: false
+        };
+        
+        onTextReplace(selectedText.id, replacementText, styling);
+        toast.success("Text replaced successfully!");
+      }
     } catch (error) {
-      console.error('Error starting file read:', error);
+      console.error("Text replacement error:", error);
+      toast.error("Failed to replace text");
+    } finally {
       setIsProcessing(false);
-      toast("Failed to process file", {
-        description: "Unable to process the selected file"
-      });
     }
-  }, [fabricCanvas]);
+  }, [selectedText, replacementText, useAIStyling, fontSize, fontFamily, fontWeight, textColor, imageDataUrl, onTextReplace]);
 
-  // Load image if it was selected before canvas was ready
-  useEffect(() => {
-    const loadImage = async () => {
-      if (!fabricCanvas || !currentImageDataUrl) return;
-      try {
-        setIsProcessing(true);
-        const img = await FabricImage.fromURL(currentImageDataUrl);
-        const imgWidth = img.width || 1;
-        const imgHeight = img.height || 1;
-        const maxWidth = 1400;
-        const maxHeight = 900;
-        let newWidth = imgWidth;
-        let newHeight = imgHeight;
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-          newWidth = imgWidth * scale;
-          newHeight = imgHeight * scale;
-        }
-        setCanvasSize({ width: newWidth, height: newHeight });
-        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
-        img.scaleToWidth(newWidth);
-        img.scaleToHeight(newHeight);
-        img.set({ left: 0, top: 0, selectable: false, evented: false });
-        fabricCanvas.clear();
-        fabricCanvas.add(img);
-        fabricCanvas.renderAll();
-        toast("Image loaded successfully", {
-          description: "Ready for advanced text analysis",
-          icon: <Sparkles className="h-4 w-4 text-primary" />
-        });
-      } catch (error) {
-        console.error('Deferred image load failed', error);
-        toast("Failed to load image", {
-          description: "Error loading previously uploaded image"
-        });
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-    
-    loadImage();
-  }, [fabricCanvas, currentImageDataUrl]);
+  const analyzeTextStyle = useCallback(async () => {
+    if (!selectedText) return;
 
-  const handleTextDetected = useCallback((texts: DetectedText[]) => {
-    if (!fabricCanvas) return;
-    
-    // Clear existing highlights
-    textHighlights.forEach(highlight => {
-      try {
-        fabricCanvas.remove(highlight);
-      } catch (error) {
-        console.warn('Error removing highlight:', error);
-      }
-    });
-    setTextHighlights([]);
-    
-    // Create futuristic highlight rectangles
-    const highlights = texts.map((detectedText, index) => {
-      const highlight = new Rect({
-        left: (detectedText.x * canvasSize.width) / 100,
-        top: (detectedText.y * canvasSize.height) / 100,
-        width: (detectedText.width * canvasSize.width) / 100,
-        height: (detectedText.height * canvasSize.height) / 100,
-        fill: 'transparent',
-        stroke: '#8b5cf6',
-        strokeWidth: 2,
-        strokeDashArray: [5, 5],
-        selectable: true,
-        hoverCursor: 'pointer',
-        moveCursor: 'pointer',
-        opacity: 0,
-        shadow: new Shadow({
-          color: '#8b5cf6',
-          blur: 10,
-          offsetX: 0,
-          offsetY: 0,
-        })
-      });
-
-      // Store original text data
-      (highlight as any).originalText = detectedText;
-
-      // Add futuristic hover effects
-      highlight.on('mouseover', () => {
-        highlight.set({ stroke: '#a855f7', strokeWidth: 3 });
-        fabricCanvas.renderAll();
-      });
-
-      highlight.on('mouseout', () => {
-        highlight.set({ stroke: '#8b5cf6', strokeWidth: 2 });
-        fabricCanvas.renderAll();
-      });
-
-      // Selection handler
-      highlight.on('mousedown', () => {
-        setSelectedText(detectedText);
-        toast(`Selected: "${detectedText.text}"`, {
-          description: "Use advanced replacement panel to modify",
-          icon: <Target className="h-4 w-4 text-primary" />
-        });
-      });
-
-      // Animate highlight appearance
-      setTimeout(() => {
-        highlight.set({ opacity: 0.8 });
-        fabricCanvas.renderAll();
-      }, index * 100);
-
-      return highlight;
-    });
-
-    // Add highlights to canvas safely
-    highlights.forEach(highlight => {
-      try {
-        fabricCanvas.add(highlight);
-      } catch (error) {
-        console.error('Error adding highlight to canvas:', error);
-      }
-    });
-    
-    setTextHighlights(highlights);
-    setDetectedTexts(texts);
-    fabricCanvas.renderAll();
-  }, [fabricCanvas, canvasSize, textHighlights]);
-
-  // UPDATED: Handle FLUX model responses
-  const handleAdvancedTextReplace = useCallback(async (
-    textId: string,
-    newText: string,
-    styling: any
-  ) => {
-    if (!fabricCanvas || !currentImageDataUrl) return;
-
-    // If FLUX model returned an edited image, use it directly
-    if (styling.editedImage) {
-      try {
-        // Load the new image from FLUX model
-        const img = await FabricImage.fromURL(styling.editedImage);
-        const imgWidth = img.width || 1;
-        const imgHeight = img.height || 1;
-        
-        // Update canvas with the new image
-        fabricCanvas.clear();
-        img.set({
-          left: 0,
-          top: 0,
-          selectable: false,
-          evented: false,
-        });
-        fabricCanvas.add(img);
-        fabricCanvas.renderAll();
-        
-        // Update the current image data URL
-        setCurrentImageDataUrl(styling.editedImage);
-        
-        // Clear highlights since we have a new image
-        textHighlights.forEach(highlight => {
-          try {
-            fabricCanvas.remove(highlight);
-          } catch (error) {
-            console.warn('Error removing highlight during FLUX update:', error);
-          }
-        });
-        setTextHighlights([]);
-        setDetectedTexts([]);
-        setSelectedText(null);
-        
-        toast("Text replaced with AI precision!", {
-          description: "New image generated by FLUX model",
-          icon: <Sparkles className="h-4 w-4 text-primary" />
-        });
-        
-        return;
-      } catch (error) {
-        console.error('Error loading FLUX image:', error);
-        toast("Failed to load AI-generated image, using fallback");
-        // Fall through to manual replacement
-      }
+    try {
+      toast.info("Analyzing text style...");
+      setIsProcessing(true);
+      
+      // Simulate style analysis
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setFontSize(selectedText.height * 0.8);
+      setFontFamily("Arial");
+      setFontWeight("normal");
+      setTextColor("#ffffff");
+      
+      toast.success("Style analysis completed!");
+    } catch (error) {
+      toast.error("Style analysis failed");
+    } finally {
+      setIsProcessing(false);
     }
+  }, [selectedText]);
 
-    // Fallback to manual replacement (existing code)
-    const targetHighlight = textHighlights.find(h => 
-      (h as any).originalText?.id === textId
+  const fontFamilies = [
+    "Arial", "Helvetica", "Times New Roman", "Georgia", "Verdana", 
+    "Courier New", "Impact", "Trebuchet MS", "Comic Sans MS"
+  ];
+
+  const fontWeightOptions = [
+    { value: "normal", label: "Normal" },
+    { value: "bold", label: "Bold" },
+    { value: "lighter", label: "Light" },
+    { value: "bolder", label: "Bolder" }
+  ];
+
+  if (disabled) {
+    return (
+      <Card className="p-4 bg-purple-500/5 border-purple-500/30">
+        <div className="flex items-center mb-3">
+          <Wand2 className="mr-2 h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold">Advanced Text Replacement</h3>
+        </div>
+        <p className="text-sm text-gray-400 text-center py-4">
+          Upload an image and detect text to enable advanced replacement
+        </p>
+      </Card>
     );
-    
-    if (!targetHighlight) return;
-
-    try {
-      const bounds = targetHighlight.getBoundingRect();
-      
-      // Remove old text objects in the area with fade animation
-      const objectsToRemove = fabricCanvas.getObjects().filter(obj => {
-        if (textHighlights.includes(obj as Rect)) return false;
-        
-        const objBounds = obj.getBoundingRect();
-        return !(
-          objBounds.left > bounds.left + bounds.width ||
-          objBounds.left + objBounds.width < bounds.left ||
-          objBounds.top > bounds.top + bounds.height ||
-          objBounds.top + objBounds.height < bounds.top
-        );
-      });
-
-      // Remove old objects and create new text
-      objectsToRemove.forEach(obj => fabricCanvas.remove(obj));
-
-      setTimeout(() => {
-        const newTextObj = new FabricText(newText, {
-          left: bounds.left + 4,
-          top: bounds.top + (bounds.height - (styling.fontSize || 16)) / 2,
-          fontSize: styling.fontSize || 16,
-          fill: styling.color || '#ffffff',
-          fontFamily: styling.fontFamily || 'Arial',
-          fontWeight: styling.fontWeight || 'normal',
-          textAlign: 'left',
-          editable: true,
-        });
-
-        fabricCanvas.add(newTextObj);
-        fabricCanvas.remove(targetHighlight);
-        setTextHighlights(prev => prev.filter(h => h !== targetHighlight));
-        fabricCanvas.renderAll();
-      }, 250);
-    } catch (error) {
-      console.error('Error in manual text replacement:', error);
-      toast("Error replacing text", {
-        description: "Failed to replace text manually"
-      });
-    }
-  }, [fabricCanvas, textHighlights, currentImageDataUrl]);
-
-  const exportImage = useCallback(() => {
-    if (!fabricCanvas) return;
-
-    try {
-      const dataURL = fabricCanvas.toDataURL({
-        format: 'png',
-        quality: 1,
-        multiplier: 2, // Higher resolution export
-      });
-
-      const link = document.createElement('a');
-      link.download = `neural-edit-${Date.now()}.png`;
-      link.href = dataURL;
-      link.click();
-      
-      toast("Image exported!", {
-        description: "High-resolution export complete",
-        icon: <Download className="h-4 w-4 text-primary" />
-      });
-    } catch (error) {
-      console.error('Error exporting image:', error);
-      toast("Export failed", {
-        description: "There was an error exporting the image"
-      });
-    }
-  }, [fabricCanvas]);
-
-  const clearCanvas = useCallback(() => {
-    if (!fabricCanvas) return;
-    
-    try {
-      fabricCanvas.clear();
-      fabricCanvas.backgroundColor = "#0a0a0a";
-      setDetectedTexts([]);
-      setTextHighlights([]);
-      setCurrentImageDataUrl("");
-      setSelectedText(null);
-      fabricCanvas.renderAll();
-      
-      toast("Canvas cleared", {
-        icon: <Trash2 className="h-4 w-4" />
-      });
-    } catch (error) {
-      console.error('Error clearing canvas:', error);
-      toast("Error clearing canvas", {
-        description: "There was an error clearing the canvas"
-      });
-    }
-  }, [fabricCanvas]);
-
-  // Add missing CSS classes for gradients and animations
-  const styles = `
-    .bg-gradient-neural {
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-    }
-    
-    .bg-gradient-primary {
-      background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-    }
-    
-    .bg-gradient-secondary {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-    }
-    
-    .bg-gradient-accent {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
-    }
-    
-    .bg-gradient-hologram {
-      background: linear-gradient(45deg, #8b5cf6, #a855f7, #ec4899, #8b5cf6);
-      background-size: 400% 400%;
-    }
-    
-    .animate-neural-flow {
-      animation: neuralFlow 6s ease infinite;
-    }
-    
-    .animate-hologram {
-      animation: hologram 3s ease infinite;
-    }
-    
-    .animate-pulse-glow {
-      animation: pulseGlow 2s ease-in-out infinite;
-    }
-    
-    .shadow-glow-primary {
-      box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
-    }
-    
-    .shadow-glow {
-      box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
-    }
-    
-    @keyframes neuralFlow {
-      0%, 100% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-    }
-    
-    @keyframes hologram {
-      0%, 100% { opacity: 0.1; }
-      50% { opacity: 0.3; }
-    }
-    
-    @keyframes pulseGlow {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-  `;
+  }
 
   return (
-    <>
-      <style>{styles}</style>
-      <div className="min-h-screen bg-gradient-neural bg-[length:400%_400%] animate-neural-flow">
-        {/* Futuristic Header */}
-        <div className="border-b border-primary/30 bg-background/80 backdrop-blur-xl">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Brain className="h-8 w-8 text-primary animate-pulse-glow" />
-                <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  Neural Text Editor
-                </h1>
-              </div>
-              <Badge 
-                variant="secondary" 
-                className="bg-primary/10 text-primary border-primary/30 shadow-glow-primary"
-              >
-                AI-Powered
-              </Badge>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="border-primary/30 hover:bg-primary/10"
-              >
-                {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFullscreenMode(!fullscreenMode)}
-                className="border-primary/30 hover:bg-primary/10"
-              >
-                {fullscreenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
+    <Card className="p-4 bg-purple-500/5 border-purple-500/30">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <Wand2 className="mr-2 h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold">Advanced Text Replacement</h3>
         </div>
+        <Badge variant={selectedText ? "default" : "secondary"}>
+          {selectedText ? "Selected" : "None"}
+        </Badge>
+      </div>
 
-        <div className="flex h-[calc(100vh-73px)]">
-          {/* Advanced Sidebar */}
-          <div className={`${sidebarCollapsed ? 'w-16' : 'w-96'} transition-all duration-300 border-r border-primary/30 bg-background/80 backdrop-blur-xl overflow-y-auto`}>
-            {!sidebarCollapsed && (
-              <div className="p-6 space-y-6">
-                {/* Upload Section */}
-                <Card className="p-4 bg-gradient-secondary border-primary/30 shadow-glow">
-                  <div className="flex items-center mb-3">
-                    <Upload className="mr-2 h-5 w-5 text-primary" />
-                    <h3 className="font-semibold">Image Upload</h3>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <Button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isProcessing}
-                    className="w-full bg-gradient-primary hover:shadow-glow-primary transition-all duration-300"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {isProcessing ? "Processing..." : "Upload Image"}
-                  </Button>
-                </Card>
-
-                {/* Text Detection */}
-                <TextDetection
-                  onTextDetected={handleTextDetected}
-                  imageDataUrl={currentImageDataUrl}
-                />
-
-                {/* Advanced Text Replacement */}
-                <AdvancedTextReplacement
-                  detectedTexts={detectedTexts}
-                  selectedText={selectedText}
-                  imageDataUrl={currentImageDataUrl}
-                  onTextReplace={handleAdvancedTextReplace}
-                  onTextSelect={setSelectedText}
-                />
-
-                {/* Quick Actions */}
-                <Card className="p-4 bg-gradient-secondary border-primary/30">
-                  <h3 className="font-semibold mb-3 flex items-center">
-                    <Zap className="mr-2 h-4 w-4 text-primary" />
-                    Quick Actions
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={exportImage}
-                      variant="outline"
-                      size="sm"
-                      className="border-primary/30 hover:bg-primary/10"
-                    >
-                      <Download className="mr-2 h-3 w-3" />
-                      Export
-                    </Button>
-                    <Button
-                      onClick={clearCanvas}
-                      variant="outline"
-                      size="sm"
-                      className="border-destructive/30 hover:bg-destructive/10"
-                    >
-                      <Trash2 className="mr-2 h-3 w-3" />
-                      Clear
-                    </Button>
-                  </div>
-                </Card>
-
-                {/* Stats Panel */}
-                {detectedTexts.length > 0 && (
-                  <Card className="p-4 bg-gradient-accent border-primary/30">
-                    <h3 className="font-semibold mb-3 flex items-center">
-                      <Eye className="mr-2 h-4 w-4 text-primary" />
-                      Detection Stats
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Detected Texts:</span>
-                        <Badge variant="secondary">{detectedTexts.length}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Avg. Confidence:</span>
-                        <Badge variant="secondary">
-                          {Math.round((detectedTexts.reduce((sum, t) => sum + t.confidence, 0) / detectedTexts.length) * 100)}%
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Selected:</span>
-                        <Badge variant={selectedText ? "default" : "secondary"}>
-                          {selectedText ? "1" : "0"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Main Canvas Area */}
-          <div className="flex-1 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-hologram animate-hologram opacity-20 pointer-events-none" />
-            
-            <div className="h-full flex items-center justify-center p-6">
-              <div 
-                className="relative rounded-lg overflow-hidden shadow-2xl"
-                style={{
-                  boxShadow: '0 0 40px hsl(262 83% 58% / 0.3), inset 0 0 40px hsl(262 83% 58% / 0.1)'
-                }}
-              >
-                <canvas 
-                  ref={canvasRef} 
-                  className="max-w-full max-h-full border border-primary/30 rounded-lg"
-                />
-                
-                {/* Loading Overlay */}
-                {isProcessing && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <Brain className="h-12 w-12 text-primary animate-pulse-glow mx-auto" />
-                      <p className="text-primary font-medium">Neural Processing...</p>
-                    </div>
-                  </div>
-                )}
+      {/* Text Selection */}
+      <div className="space-y-3">
+        <Label>Select Text to Replace</Label>
+        <div className="max-h-32 overflow-y-auto space-y-1">
+          {detectedTexts.map((text) => (
+            <div
+              key={text.id}
+              className={`p-2 rounded border cursor-pointer transition-all ${
+                selectedText?.id === text.id
+                  ? "bg-purple-500/20 border-purple-500"
+                  : "border-gray-600 hover:border-purple-400"
+              }`}
+              onClick={() => handleTextSelect(text)}
+            >
+              <div className="flex justify-between items-center">
+                <span className="text-sm truncate flex-1">{text.text}</span>
+                <Badge variant="secondary" className="ml-2">
+                  {Math.round(text.confidence * 100)}%
+                </Badge>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
-    </>
+
+      {/* Replacement Input */}
+      {selectedText && (
+        <>
+          <Separator className="my-4" />
+          
+          <div className="space-y-3">
+            <Label htmlFor="replacement-text">Replacement Text</Label>
+            <Input
+              id="replacement-text"
+              value={replacementText}
+              onChange={(e) => setReplacementText(e.target.value)}
+              placeholder="Enter new text..."
+              className="bg-black/30 border-gray-600"
+            />
+          </div>
+
+          {/* AI Styling Toggle */}
+          <div className="flex items-center justify-between mt-4 p-3 bg-black/20 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              <Label htmlFor="ai-styling" className="text-sm">AI-Powered Styling</Label>
+            </div>
+            <Switch
+              id="ai-styling"
+              checked={useAIStyling}
+              onCheckedChange={setUseAIStyling}
+            />
+          </div>
+
+          {/* Advanced Styling Options */}
+          {!useAIStyling && (
+            <div className="space-y-4 mt-4 p-3 bg-black/20 rounded-lg">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Advanced Styling</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={analyzeTextStyle}
+                  disabled={isProcessing}
+                  className="h-7 text-xs"
+                >
+                  <Target className="h-3 w-3 mr-1" />
+                  Analyze
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="font-size" className="text-xs">Font Size: {fontSize}px</Label>
+                  <Slider
+                    id="font-size"
+                    min={8}
+                    max={72}
+                    step={1}
+                    value={[fontSize]}
+                    onValueChange={([value]) => setFontSize(value)}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="font-family" className="text-xs">Font Family</Label>
+                  <Select value={fontFamily} onValueChange={setFontFamily}>
+                    <SelectTrigger className="bg-black/30 border-gray-600 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fontFamilies.map(font => (
+                        <SelectItem key={font} value={font}>{font}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="font-weight" className="text-xs">Font Weight</Label>
+                  <Select value={fontWeight} onValueChange={setFontWeight}>
+                    <SelectTrigger className="bg-black/30 border-gray-600 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fontWeightOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="text-color" className="text-xs">Text Color</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      id="text-color"
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="bg-black/30 border-gray-600 h-8 flex-1"
+                    />
+                    <div 
+                      className="w-8 h-8 rounded border border-gray-600"
+                      style={{ backgroundColor: textColor }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Replace Button */}
+          <Button
+            onClick={handleReplaceText}
+            disabled={isProcessing || !replacementText.trim()}
+            className="w-full mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {isProcessing ? (
+              <>
+                <Zap className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 mr-2" />
+                {useAIStyling ? "Replace with AI" : "Replace Text"}
+              </>
+            )}
+          </Button>
+        </>
+      )}
+
+      {!selectedText && detectedTexts.length > 0 && (
+        <p className="text-sm text-gray-400 text-center py-2">
+          Select a text region to replace
+        </p>
+      )}
+    </Card>
   );
 };
+
+// Separator component since it wasn't imported
+const Separator = ({ className }: { className?: string }) => (
+  <div className={`border-t border-gray-600 ${className}`} />
+);
