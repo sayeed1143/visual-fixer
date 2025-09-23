@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Eye, Zap } from "lucide-react";
+import { Eye, Zap, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface DetectedText {
@@ -115,6 +115,94 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
     }
   };
 
+  // NEW: FLUX Model Text Replacement
+  const replaceTextWithFLUX = async (originalText: string, newText: string, coordinates: any) => {
+    if (!imageDataUrl) {
+      toast("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      const response = await fetch('/api/replace-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageDataUrl,
+          originalText,
+          newText,
+          coordinates
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to replace text with FLUX model');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.editedImage) {
+        toast(`Text replaced successfully using FLUX model!`);
+        return data.editedImage; // Return the new image data
+      } else {
+        throw new Error('Text replacement failed');
+      }
+    } catch (error) {
+      console.error('FLUX replacement error:', error);
+      toast("Failed to replace text with AI model");
+      throw error;
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  // NEW: General Image Editing with FLUX
+  const editImageWithFLUX = async (prompt: string) => {
+    if (!imageDataUrl) {
+      toast("Please upload an image first");
+      return;
+    }
+
+    setIsDetecting(true);
+
+    try {
+      const response = await fetch('/api/edit-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageDataUrl,
+          prompt
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to edit image with FLUX model');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.editedImage) {
+        toast(`Image edited successfully using FLUX model!`);
+        return data.editedImage;
+      } else {
+        throw new Error('Image editing failed');
+      }
+    } catch (error) {
+      console.error('FLUX editing error:', error);
+      toast("Failed to edit image with AI model");
+      throw error;
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
   const detectTextWithTesseract = async () => {
     if (!imageDataUrl) {
       toast("Please upload an image first");
@@ -158,41 +246,12 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
     }
   };
 
-  return (
-    <Card className="p-4 bg-gradient-secondary border-primary/30 shadow-glow">
-      <h3 className="font-semibold mb-3 text-foreground flex items-center">
-        <Eye className="mr-2 h-4 w-4 text-primary animate-pulse-glow" />
-        🧠 Neural Text Detection
-      </h3>
-      
-      <div className="space-y-4">
-        <div className="bg-muted/50 p-3 rounded-lg">
-          <p className="text-xs text-muted-foreground">
-            🧠 Advanced AI models with fallback system: Gemini 2.5 Flash → GPT-4o → Claude 3.5 Sonnet for maximum accuracy and seamless text replacement.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Button 
-            onClick={detectTextWithOpenRouter}
-            disabled={isDetecting}
-            className="w-full bg-gradient-primary hover:shadow-glow-primary transition-all duration-300"
-          >
-            <Zap className="mr-2 h-4 w-4" />
-            {isDetecting ? "🧠 Analyzing..." : "🚀 AI Neural Detection"}
-          </Button>
-          
-          <Button 
-            onClick={detectTextWithTesseract}
-            disabled={isDetecting}
-            variant="outline" 
-            className="w-full border-primary/30 hover:bg-primary/10"
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            {isDetecting ? "⚡ Processing..." : "🔍 OCR Detection"}
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
+  // Export the FLUX functions for use in other components
+  return {
+    detectTextWithOpenRouter,
+    detectTextWithTesseract,
+    replaceTextWithFLUX,
+    editImageWithFLUX,
+    isDetecting
+  };
 };
