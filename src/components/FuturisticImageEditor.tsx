@@ -72,7 +72,7 @@ export const FuturisticImageEditor = () => {
       backgroundColor: "#0a0a0a",
     });
 
-    // Add futuristic grid background
+    // Set dark background
     canvas.backgroundColor = "#0a0a0a";
 
     setFabricCanvas(canvas);
