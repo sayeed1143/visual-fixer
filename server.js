@@ -182,6 +182,7 @@ app.post('/api/edit-image', async (req, res) => {
           }),
         });
         if (!response.ok) {
+          try { console.error(`${model} request failed:`, response.status, await response.text()); } catch {}
           continue;
         }
         const data = await response.json();
@@ -243,6 +244,7 @@ app.post('/api/replace-text', async (req, res) => {
           }),
         });
         if (!response.ok) {
+          try { console.error(`${model} request failed:`, response.status, await response.text()); } catch {}
           continue;
         }
         const data = await response.json();
