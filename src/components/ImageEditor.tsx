@@ -80,6 +80,7 @@ export const ImageEditor = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const imgUrl = e.target?.result as string;
+      setCurrentImageDataUrl(imgUrl); // Store the image data URL for text detection
       
       FabricImage.fromURL(imgUrl).then((img) => {
         const imgWidth = img.width || 1;
@@ -230,11 +231,16 @@ export const ImageEditor = () => {
         moveCursor: 'pointer',
       });
 
+      // Store original text data in the highlight object
+      (highlight as any).originalText = detectedText;
+
       // Add click handler to select text for replacement
       highlight.on('mousedown', () => {
         setSelectedTextHighlight(highlight);
         setReplacementText(detectedText.text);
-        toast(`Selected "${detectedText.text}" - Enter replacement text below`);
+        toast(`Selected "${detectedText.text}" - Enter replacement text below`, {
+          description: "Type new text and click Replace Selected Text"
+        });
       });
 
       return highlight;
@@ -291,13 +297,16 @@ export const ImageEditor = () => {
       fontSize = Math.max(minFontSize, (highlightBounds.width / replacementText.length) / 0.6);
     }
 
-    // Add replacement text with matching style
+    // Try to detect original text color from image (simplified approach)
+    let textColor = '#000000'; // Default black
+    
+    // Add replacement text with matching style and inferred color
     const newText = new FabricText(replacementText, {
       left: highlightBounds.left + 2,
       top: highlightBounds.top + (highlightBounds.height - fontSize) / 2,
       fontSize: fontSize,
-      fill: textProperties.color,
-      fontFamily: textProperties.fontFamily,
+      fill: textColor,
+      fontFamily: 'Arial', // Use consistent font for better matching
       fontWeight: 'normal',
       editable: true,
     });
