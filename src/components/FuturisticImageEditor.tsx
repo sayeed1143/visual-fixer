@@ -183,6 +183,7 @@ export const FuturisticImageEditor = () => {
       toast("Failed to read file", {
         description: "There was an error reading the selected file"
       });
+      (event.target as HTMLInputElement).value = '';
     };
     
     try {
