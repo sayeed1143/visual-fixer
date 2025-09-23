@@ -198,6 +198,45 @@ export const FuturisticImageEditor = () => {
     }
   }, [fabricCanvas]);
 
+  // Load image if it was selected before canvas was ready
+  useEffect(() => {
+    const load = async () => {
+      if (!fabricCanvas || !currentImageDataUrl) return;
+      try {
+        setIsProcessing(true);
+        const img = await FabricImage.fromURL(currentImageDataUrl);
+        const imgWidth = img.width || 1;
+        const imgHeight = img.height || 1;
+        const maxWidth = 1400;
+        const maxHeight = 900;
+        let newWidth = imgWidth;
+        let newHeight = imgHeight;
+        if (imgWidth > maxWidth || imgHeight > maxHeight) {
+          const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+          newWidth = imgWidth * scale;
+          newHeight = imgHeight * scale;
+        }
+        setCanvasSize({ width: newWidth, height: newHeight });
+        fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
+        img.scaleToWidth(newWidth);
+        img.scaleToHeight(newHeight);
+        img.set({ left: 0, top: 0, selectable: false, evented: false });
+        fabricCanvas.clear();
+        fabricCanvas.add(img);
+        fabricCanvas.renderAll();
+        toast("Image loaded successfully", {
+          description: "Ready for advanced text analysis",
+          icon: <Sparkles className="h-4 w-4 text-primary" />
+        });
+      } catch (e) {
+        console.error('Deferred image load failed', e);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+    load();
+  }, [fabricCanvas, currentImageDataUrl]);
+
   const handleTextDetected = useCallback((texts: DetectedText[]) => {
     if (!fabricCanvas) return;
     
