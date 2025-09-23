@@ -17,34 +17,44 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
   }
 
-  const models = [
-    'google/gemini-2.0-flash-exp',
-    'google/gemini-2.5-flash-preview',
-    'openai/gpt-4o',
-    'anthropic/claude-3.5-sonnet'
-  ];
-
+  // Helper to safely extract an image (base64 or URL) from OpenRouter response
   const extractImageFromResponse = (data) => {
-    const choice = data?.choices?.[0]?.message?.content;
+    // New OpenRouter format: check images field first
+    const message = data?.choices?.[0]?.message;
+    if (message?.images && message.images.length > 0) {
+      const image = message.images[0];
+      if (image?.image_url?.url) return image.image_url.url;
+      if (image?.url) return image.url;
+    }
+    
+    // Legacy format: check content field
+    const choice = message?.content;
     if (!choice) return null;
+    // If content is an array, look for image-like items
     if (Array.isArray(choice)) {
       for (const item of choice) {
         if (!item) continue;
-        if (item.type === 'image' && item.data) return item.data;
-        if (item.type === 'image_url' && item.image_url?.url) return item.image_url.url;
-        if (item.type === 'output_image' && item.image_url) return item.image_url;
+        if (item.type === 'image' && item.data) return item.data; // base64
+        if (item.type === 'image_url' && item.image_url?.url) return item.image_url.url; // URL
+        if (item.type === 'output_image' && item.image_url) return item.image_url; // some models
         if (typeof item.text === 'string') {
           const m = item.text.match(/data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+/);
           if (m) return m[0];
         }
       }
     }
+    // If content is a string, try to parse base64 data url
     if (typeof choice === 'string') {
       const m = choice.match(/data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+/);
       if (m) return m[0];
     }
     return null;
   };
+
+  // Use only models that actually generate images
+  const models = [
+    'google/gemini-2.5-flash-image-preview'
+  ];
 
   for (const model of models) {
     try {
@@ -60,21 +70,32 @@ export default async function handler(req, res) {
             {
               role: 'user',
               content: [
-                { type: 'text', text: `Edit this image according to the following instruction: ${prompt}. Return the edited image.` },
+                { type: 'text', text: `Looking at this image, recreate it but with this modification: ${prompt}. Keep all other aspects as similar as possible.` },
                 { type: 'image_url', image_url: { url: imageDataUrl } }
               ]
             }
           ],
           max_tokens: 1000,
           temperature: 0.7,
-          modalities: ['image']
+          // modalities parameter removed as it can cause 400 errors
         }),
       });
-      if (!response.ok) continue;
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`Model ${model} failed with status ${response.status}:`, errorText);
+        continue;
+      }
+      
       const data = await response.json();
       const img = extractImageFromResponse(data);
-      if (img) return res.status(200).json({ success: true, editedImage: img, model });
+      if (img) {
+        return res.status(200).json({ success: true, editedImage: img, model });
+      } else {
+        console.log(`Model ${model} returned no image. Response structure:`, JSON.stringify(data, null, 2));
+      }
     } catch (e) {
+      console.log(`Model ${model} failed:`, e.message);
       continue;
     }
   }

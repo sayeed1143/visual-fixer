@@ -177,10 +177,7 @@ app.post('/api/edit-image', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.0-flash-exp',
-      'google/gemini-2.5-flash-preview',
-      'openai/gpt-4o',
-      'anthropic/claude-3.5-sonnet'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     for (const model of models) {
@@ -197,14 +194,14 @@ app.post('/api/edit-image', async (req, res) => {
               {
                 role: 'user',
                 content: [
-                  { type: 'text', text: `Edit this image according to the following instruction: ${prompt}. Return the edited image.` },
+                  { type: 'text', text: `Looking at this image, recreate it but with this modification: ${prompt}. Keep all other aspects as similar as possible.` },
                   { type: 'image_url', image_url: { url: imageDataUrl } }
                 ]
               }
             ],
             max_tokens: 1000,
             temperature: 0.7,
-            modalities: ['image', 'text']
+            // modalities parameter removed as it can cause 400 errors
           }),
         });
         if (!response.ok) {
@@ -213,6 +210,8 @@ app.post('/api/edit-image', async (req, res) => {
           continue;
         }
         const data = await response.json();
+        
+        // Extract image from the response using the existing helper function
         const img = extractImageFromResponse(data);
         if (img) {
           return res.status(200).json({ success: true, editedImage: img, model });
@@ -245,15 +244,12 @@ app.post('/api/replace-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.0-flash-exp',
-      'google/gemini-2.5-flash-preview',
-      'openai/gpt-4o',
-      'anthropic/claude-3.5-sonnet'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     const prompt = coordinates
-      ? `Replace the text at position x:${coordinates.x}%, y:${coordinates.y}% with text "${newText}". Maintain the same style, font, and background.`
-      : `Replace the text "${originalText}" with "${newText}" in the image. Maintain the same style and appearance.`;
+      ? `Looking at this image, recreate it exactly but replace the text at position x:${coordinates.x}%, y:${coordinates.y}% with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`
+      : `Looking at this image, recreate it exactly but replace the text "${originalText}" with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`;
 
     for (const model of models) {
       try {
@@ -270,7 +266,7 @@ app.post('/api/replace-text', async (req, res) => {
             ],
             max_tokens: 1000,
             temperature: 0.3,
-            modalities: ['image', 'text']
+            // modalities parameter removed as it can cause 400 errors
           }),
         });
         if (!response.ok) {
