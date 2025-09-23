@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,7 +25,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// API endpoint for text detection
+// Text detection endpoint (your existing code - works fine)
 app.post('/api/detect-text', async (req, res) => {
   try {
     const { imageDataUrl } = req.body;
@@ -38,7 +39,6 @@ app.post('/api/detect-text', async (req, res) => {
       return res.status(500).json({ error: 'OpenRouter API key not configured' });
     }
 
-    // Models in order of preference: cost-effective -> premium -> precise
     const models = [
       'google/gemini-2.5-flash-preview',
       'openai/gpt-4o',
@@ -81,13 +81,12 @@ app.post('/api/detect-text', async (req, res) => {
 
         if (!response.ok) {
           console.error(`${model} failed:`, response.status);
-          continue; // Try next model
+          continue;
         }
 
         const data = await response.json();
         const textContent = data.choices[0]?.message?.content || '';
         
-        // Parse the JSON response
         const jsonMatch = textContent.match(/\[.*\]/s);
         if (jsonMatch) {
           const detectedTexts = JSON.parse(jsonMatch[0]).map((item, index) => ({
@@ -98,7 +97,7 @@ app.post('/api/detect-text', async (req, res) => {
             width: item.width,
             height: item.height,
             confidence: item.confidence || 0.8,
-            model: model // Track which model detected this
+            model: model
           }));
           
           return res.status(200).json({ 
@@ -109,11 +108,175 @@ app.post('/api/detect-text', async (req, res) => {
         }
       } catch (error) {
         console.error(`Error with ${model}:`, error);
-        continue; // Try next model
+        continue;
       }
     }
 
     return res.status(500).json({ error: 'All models failed to detect text' });
+  } catch (error) {
+    console.error('Server error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// NEW: Image Editing Endpoint using FLUX model
+app.post('/api/edit-image', async (req, res) => {
+  try {
+    const { imageDataUrl, prompt, editType = 'inpainting' } = req.body;
+    
+    if (!imageDataUrl || !prompt) {
+      return res.status(400).json({ error: 'Image data and prompt are required' });
+    }
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OpenRouter API key not configured' });
+    }
+
+    // Use FLUX model for image editing
+    const model = 'black-forest-labs/flux-1.1-pro';
+    
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Edit this image according to the following instruction: ${prompt}. Return the edited image.`
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageDataUrl
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7,
+          // Important: Specify we want image response
+          modalities: ["image"]
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('FLUX model failed:', response.status, errorText);
+        return res.status(500).json({ error: `Model failed: ${response.status}` });
+      }
+
+      const data = await response.json();
+      
+      // FLUX returns image data in the response
+      const imageContent = data.choices[0]?.message?.content;
+      if (imageContent && imageContent.type === 'image') {
+        return res.status(200).json({ 
+          success: true,
+          editedImage: imageContent.data, // Base64 image data
+          model: model
+        });
+      } else {
+        return res.status(500).json({ error: 'No image data returned from model' });
+      }
+      
+    } catch (error) {
+      console.error('Error with FLUX model:', error);
+      return res.status(500).json({ error: 'Image editing failed' });
+    }
+
+  } catch (error) {
+    console.error('Server error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// NEW: Text Replacement Endpoint (Specific use case)
+app.post('/api/replace-text', async (req, res) => {
+  try {
+    const { imageDataUrl, originalText, newText, coordinates } = req.body;
+    
+    if (!imageDataUrl || !originalText || !newText) {
+      return res.status(400).json({ error: 'Image data, original text, and new text are required' });
+    }
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OpenRouter API key not configured' });
+    }
+
+    const model = 'black-forest-labs/flux-1.1-pro';
+    
+    // Create a precise prompt for text replacement
+    const prompt = coordinates 
+      ? `Replace the text at position x:${coordinates.x}%, y:${coordinates.y}% with text "${newText}". Maintain the same style, font, and background.`
+      : `Replace the text "${originalText}" with "${newText}" in the image. Maintain the same style and appearance.`;
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageDataUrl
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.3, // Lower temperature for more consistent results
+          modalities: ["image"]
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('FLUX model failed:', response.status, errorText);
+        return res.status(500).json({ error: `Model failed: ${response.status}` });
+      }
+
+      const data = await response.json();
+      const imageContent = data.choices[0]?.message?.content;
+      
+      if (imageContent && imageContent.type === 'image') {
+        return res.status(200).json({ 
+          success: true,
+          editedImage: imageContent.data,
+          model: model
+        });
+      } else {
+        return res.status(500).json({ error: 'No image data returned' });
+      }
+      
+    } catch (error) {
+      console.error('Error with FLUX model:', error);
+      return res.status(500).json({ error: 'Text replacement failed' });
+    }
+
   } catch (error) {
     console.error('Server error:', error);
     return res.status(500).json({ error: 'Internal server error' });
