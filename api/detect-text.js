@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   // Models in order of preference: cost-effective -> premium -> precise
   const models = [
     'google/gemini-2.0-flash-exp',
-    'google/gemini-2.5-flash-preview',
+    'google/gemini-2.5-flash-lite-preview-06-17',
     'openai/gpt-4o',
     'anthropic/claude-3.5-sonnet'
   ];
