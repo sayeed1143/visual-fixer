@@ -23,7 +23,7 @@ interface TextDetectionProps {
 }
 
 export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }: TextDetectionProps) => {
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || "");
   const [isDetecting, setIsDetecting] = useState(false);
 
   // Downscale and compress data URL to fit serverless limits (~4.5MB on Vercel)
