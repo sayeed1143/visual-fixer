@@ -376,12 +376,53 @@ export const FuturisticImageEditor = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 opacity-20 pointer-events-none" />
           
           <div className="h-full flex items-center justify-center p-6">
-            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30">
-              <canvas 
-                ref={canvasRef} 
+            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30" style={{ width: canvasSize.width, height: canvasSize.height }}>
+              <canvas
+                ref={canvasRef}
                 className="max-w-full max-h-full"
               />
-              
+
+              {/* Detection Overlay */}
+              {detectedTexts.length > 0 && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {detectedTexts.map((t) => {
+                    const norm = (val: number, dim: 'x' | 'y' | 'w' | 'h') => {
+                      // Convert any incoming unit to percentage of canvas
+                      const size = dim === 'x' || dim === 'w' ? canvasSize.width : canvasSize.height;
+                      if (val <= 1) return val * 100; // 0-1
+                      if (val <= 100) return val; // already %
+                      return (val / Math.max(1, size)) * 100; // pixels -> %
+                    };
+                    const left = `${Math.max(0, Math.min(100, norm(t.x, 'x')))}%`;
+                    const top = `${Math.max(0, Math.min(100, norm(t.y, 'y')))}%`;
+                    const width = `${Math.max(0.5, Math.min(100, norm(t.width, 'w')))}%`;
+                    const height = `${Math.max(0.5, Math.min(100, norm(t.height, 'h')))}%`;
+                    const isSel = selectedText?.id === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        className={`absolute rounded-md transition-all ${isSel ? 'ring-2 ring-pink-400' : 'ring-1 ring-purple-400/60'}`}
+                        style={{ left, top, width, height, background: 'rgba(168, 85, 247, 0.12)' }}
+                      >
+                        <button
+                          type="button"
+                          className="absolute top-0 left-0 text-xs px-1.5 py-0.5 rounded-br bg-black/70 text-white border border-purple-500/40 pointer-events-auto"
+                          onClick={() => setSelectedText(t)}
+                          title={`Select: ${t.text}`}
+                        >
+                          {Math.round(t.confidence * 100)}% · {t.text || 'text'}
+                        </button>
+                        <div
+                          className="w-full h-full pointer-events-auto"
+                          onClick={() => setSelectedText(t)}
+                          title={t.text}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {isProcessing && (
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
                   <div className="text-center space-y-4">

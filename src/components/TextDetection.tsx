@@ -19,9 +19,10 @@ interface DetectedText {
 interface TextDetectionProps {
   onTextDetected: (detectedTexts: DetectedText[]) => void;
   imageDataUrl?: string;
+  disabled?: boolean;
 }
 
-export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionProps) => {
+export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }: TextDetectionProps) => {
   const [apiKey, setApiKey] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
 
@@ -246,12 +247,73 @@ export const TextDetection = ({ onTextDetected, imageDataUrl }: TextDetectionPro
     }
   };
 
-  // Export the FLUX functions for use in other components
-  return {
-    detectTextWithOpenRouter,
-    detectTextWithTesseract,
-    replaceTextWithFLUX,
-    editImageWithFLUX,
-    isDetecting
-  };
+  // Render UI for text detection
+  if (typeof disabled !== 'undefined' && disabled) {
+    return (
+      <Card className="p-4 bg-purple-500/5 border-purple-500/30">
+        <div className="flex items-center mb-3">
+          <Sparkles className="mr-2 h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold">Text Detection</h3>
+        </div>
+        <p className="text-sm text-gray-400 text-center py-4">Upload an image to enable text detection tools</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 bg-purple-500/5 border-purple-500/30">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <Sparkles className="mr-2 h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold">Text Detection</h3>
+        </div>
+        <div className="text-sm text-gray-400">{isDetecting ? 'Detecting...' : 'Ready'}</div>
+      </div>
+
+      <div className="space-y-3">
+        <Label htmlFor="api-key" className="text-sm">API Key (optional)</Label>
+        <Input
+          id="api-key"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="Enter API key for hosted models"
+          className="bg-black/30 border-gray-600"
+        />
+
+        <div className="grid grid-cols-1 gap-2">
+          <Button
+            onClick={detectTextWithOpenRouter}
+            disabled={isDetecting}
+            className="w-full mt-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {isDetecting ? (
+              <>
+                <Zap className="h-4 w-4 mr-2 animate-spin" />
+                Detecting...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Detect with AI
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={detectTextWithTesseract}
+            disabled={isDetecting}
+            variant="outline"
+            className="w-full mt-1 border-purple-500/30 hover:bg-purple-500/10"
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Detect with OCR
+          </Button>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          Use AI detection for higher accuracy on complex scenes. OCR works offline in the browser but may be slower.
+        </p>
+      </div>
+    </Card>
+  );
 };
