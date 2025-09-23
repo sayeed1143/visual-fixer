@@ -154,7 +154,7 @@ app.post('/api/edit-image', async (req, res) => {
     const models = [
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-1.1-schnell',
-      'stability-ai/stable-diffusion'
+      'stability-ai/sd3'
     ];
 
     for (const model of models) {
@@ -217,7 +217,7 @@ app.post('/api/replace-text', async (req, res) => {
     const models = [
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-1.1-schnell',
-      'stability-ai/stable-diffusion'
+      'stability-ai/sd3'
     ];
 
     const prompt = coordinates
