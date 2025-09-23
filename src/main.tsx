@@ -15,12 +15,15 @@ window.addEventListener('error', (event) => {
 
 // Handle unhandled promise rejections from browser extensions
 window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason && event.reason.message && 
-      (event.reason.message.includes('listener indicated an asynchronous response') ||
-       event.reason.message.includes('message channel closed'))) {
+  const reason = event.reason;
+  const msg = typeof reason === 'string' ? reason : (reason && reason.message);
+  if (msg && (
+      msg.includes('listener indicated an asynchronous response') ||
+      msg.includes('message channel closed')
+    )) {
     // Suppress browser extension promise rejections
     event.preventDefault();
-    console.warn('Browser extension promise rejection suppressed:', event.reason.message);
+    console.warn('Browser extension promise rejection suppressed:', msg);
   }
 });
 
