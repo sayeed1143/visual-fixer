@@ -23,7 +23,7 @@ interface TextDetectionProps {
 }
 
 export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }: TextDetectionProps) => {
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || "");
   const [isDetecting, setIsDetecting] = useState(false);
 
   // Downscale and compress data URL to fit serverless limits (~4.5MB on Vercel)
@@ -60,6 +60,9 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
     setIsDetecting(true);
 
     try {
+      // Persist key for other tools/components
+      if (apiKey) localStorage.setItem('openrouter_api_key', apiKey);
+
       const originalSizeKB = Math.round((imageDataUrl.length * 3) / 4 / 1024);
       const compressed = await compressDataUrl(imageDataUrl);
       const compressedSizeKB = Math.round((compressed.length * 3) / 4 / 1024);
@@ -71,17 +74,19 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-openrouter-key': apiKey } : {}),
         },
-        body: JSON.stringify({
-          imageDataUrl: compressed
-        }),
+        body: JSON.stringify({ imageDataUrl: compressed, apiKey: apiKey || undefined }),
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        if (response.status === 400 && text.includes('MISSING_API_KEY')) {
+          throw new Error('Missing OpenRouter API key. Enter it above or use OCR Detection.');
+        }
         if (response.status === 413) {
           throw new Error('Image too large for serverless function');
         }
-        const text = await response.text();
         throw new Error(text || 'Failed to detect text with AI models');
       }
 
@@ -265,19 +270,19 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <Sparkles className="mr-2 h-5 w-5 text-purple-500" />
-          <h3 className="font-semibold">Text Detection</h3>
+          <h3 className="font-semibold text-white">Text Detection</h3>
         </div>
-        <div className="text-sm text-gray-400">{isDetecting ? 'Detecting...' : 'Ready'}</div>
+        <div className="text-sm text-gray-200">{isDetecting ? 'Detecting...' : 'Ready'}</div>
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="api-key" className="text-sm">API Key (optional)</Label>
+        <Label htmlFor="api-key" className="text-sm text-gray-200">API Key (optional)</Label>
         <Input
           id="api-key"
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="Enter API key for hosted models"
-          className="bg-black/30 border-gray-600"
+          onChange={(e) => { setApiKey(e.target.value); localStorage.setItem('openrouter_api_key', e.target.value); }}
+          placeholder="Enter OpenRouter API key (kept locally)"
+          className="bg-black/30 border-gray-600 text-white placeholder:text-gray-400"
         />
 
         <div className="grid grid-cols-1 gap-2">
@@ -310,7 +315,7 @@ export const TextDetection = ({ onTextDetected, imageDataUrl, disabled = false }
           </Button>
         </div>
 
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-300 mt-2">
           Use AI detection for higher accuracy on complex scenes. OCR works offline in the browser but may be slower.
         </p>
       </div>

@@ -228,18 +228,18 @@ export const FuturisticImageEditor = () => {
   }, [fabricCanvas]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white">
       {/* Header */}
       <div className="border-b border-purple-500/30 bg-black/80 backdrop-blur-xl">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-8 w-8 text-purple-500" />
-              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+              <h1 className="text-2xl font-bold text-white drop-shadow">
                 Neural Text Editor
               </h1>
             </div>
-            <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <Badge variant="secondary" className="bg-purple-600/30 text-white border-purple-400">
               AI-Powered
             </Badge>
           </div>
@@ -275,7 +275,7 @@ export const FuturisticImageEditor = () => {
               <Card className="p-4 bg-purple-500/5 border-purple-500/30">
                 <div className="flex items-center mb-3">
                   <Upload className="mr-2 h-5 w-5 text-purple-500" />
-                  <h3 className="font-semibold">Image Upload</h3>
+                  <h3 className="font-semibold text-white">Image Upload</h3>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -313,7 +313,7 @@ export const FuturisticImageEditor = () => {
 
               {/* Quick Actions */}
               <Card className="p-4 bg-purple-500/5 border-purple-500/30">
-                <h3 className="font-semibold mb-3 flex items-center">
+                <h3 className="font-semibold text-white mb-3 flex items-center">
                   <Zap className="mr-2 h-4 w-4 text-purple-500" />
                   Quick Actions
                 </h3>
@@ -343,7 +343,7 @@ export const FuturisticImageEditor = () => {
               {/* Stats Panel */}
               {detectedTexts.length > 0 && (
                 <Card className="p-4 bg-purple-500/5 border-purple-500/30">
-                  <h3 className="font-semibold mb-3 flex items-center">
+                  <h3 className="font-semibold text-white mb-3 flex items-center">
                     <Eye className="mr-2 h-4 w-4 text-purple-500" />
                     Detection Stats
                   </h3>
