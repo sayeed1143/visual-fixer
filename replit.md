@@ -33,12 +33,12 @@ Preferred communication style: Simple, everyday language.
 
 ### AI Integration Strategy
 - **Multi-Provider Approach**: Primary reliance on OpenRouter API with support for multiple AI models
-- **Model Prioritization**: Cost-effective to premium model selection using verified OpenRouter models:
-  - `google/gemini-2.0-flash-exp` - Fast, optimized for text detection
-  - `google/gemini-2.5-flash-preview` - Best for comprehensive text analysis
-  - `openai/gpt-4o` - Good all-around performance for various tasks
-  - `anthropic/claude-3.5-sonnet` - High accuracy for complex operations
+- **Model Prioritization**: Verified working OpenRouter models with specialized capabilities:
+  - Text Detection: `google/gemini-2.0-flash-001`, `google/gemini-1.5-flash`, `google/gemini-pro-1.5`, `openai/gpt-4o`, `openai/gpt-4o-mini`, `anthropic/claude-3.5-sonnet`
+  - Image Editing: `black-forest-labs/flux-1.1-pro`, `black-forest-labs/flux-dev` for actual image manipulation
+  - Text Replacement: Uses same verified models as text detection with proper coordinate handling
 - **Intelligent Fallback**: Automatic model switching on failure to ensure service reliability
+- **Enhanced OCR**: Dual strategy with image preprocessing (contrast enhancement, binary thresholding) and optimized Tesseract configuration
 - **Advanced Analysis**: Text detection with coordinate mapping, confidence scoring, and contextual understanding
 
 ### Design System
