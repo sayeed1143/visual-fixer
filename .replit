@@ -6,9 +6,9 @@ expertMode = true
 channel = "stable-25_05"
 
 [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["npm", "start"]
+run = ["bash", "-c", "node server.js & npm run preview"]
 
 [workflows]
 runButton = "Project"
