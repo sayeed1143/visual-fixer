@@ -24,12 +24,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
   }
 
-  // Models in order of preference: cost-effective -> premium -> precise
+  // Updated and robust model list
   const models = [
-    'google/gemini-2.0-flash-exp',
-    'google/gemini-2.5-flash-lite-preview-06-17',
+    'anthropic/claude-3.5-sonnet',
     'openai/gpt-4o',
-    'anthropic/claude-3.5-sonnet'
+    'google/gemini-pro-1.5',
+    'google/gemini-2.5-pro',
+    'google/gemini-2.5-flash',
+    'openai/gpt-4o-mini',
+    'google/gemini-2.0-flash-001',
   ];
 
   const prompt = `Analyze this image and detect all text elements with high precision. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100 from top-left), width/height (as percentages), and confidence (0-1). Be very accurate with positioning for text replacement. Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]`;

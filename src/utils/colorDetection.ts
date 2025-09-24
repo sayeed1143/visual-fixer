@@ -58,70 +58,64 @@ export class AdvancedColorDetector {
 
   private analyzePixels(pixels: Uint8ClampedArray): ColorAnalysis {
     const colors: Array<[number, number, number]> = [];
-    const colorCounts = new Map<string, number>();
-    
-    // Sample pixels (every 4th pixel for performance)
-    for (let i = 0; i < pixels.length; i += 16) {
+    // Sample pixels
+    for (let i = 0; i < pixels.length; i += 4) { // Sample more pixels for accuracy
       const r = pixels[i];
       const g = pixels[i + 1];
       const b = pixels[i + 2];
       const alpha = pixels[i + 3];
-      
-      if (alpha > 128) { // Only consider non-transparent pixels
+      if (alpha > 128) {
         colors.push([r, g, b]);
-        const colorKey = `${r},${g},${b}`;
-        colorCounts.set(colorKey, (colorCounts.get(colorKey) || 0) + 1);
       }
     }
 
-    if (colors.length === 0) {
+    if (colors.length < 2) {
+      // Not enough data, return a default
+      const fallbackColor = colors.length === 1 ? this.rgbToHex(colors[0][0], colors[0][1], colors[0][2]) : '#000000';
       return {
-        dominantColor: '#000000',
-        averageColor: '#000000',
-        contrastRatio: 0,
-        textColor: '#000000',
-        backgroundColors: ['#ffffff'],
-        confidence: 0
+        dominantColor: fallbackColor,
+        averageColor: fallbackColor,
+        contrastRatio: 1,
+        textColor: '#FFFFFF',
+        backgroundColors: [fallbackColor],
+        confidence: 0.1
       };
     }
 
-    // Find dominant color
-    let dominantColor = '#000000';
-    let maxCount = 0;
-    for (const [colorKey, count] of colorCounts.entries()) {
-      if (count > maxCount) {
-        maxCount = count;
-        const [r, g, b] = colorKey.split(',').map(Number);
-        dominantColor = this.rgbToHex(r, g, b);
-      }
+    // K-Means with k=2 to find text and background colors
+    const clusters = this.kMeansColors(colors, 2);
+    const clusterAssignments: Array<Array<[number, number, number]>> = [[], []];
+
+    for (const color of colors) {
+        const dist1 = this.colorDistance(color, clusters[0]);
+        const dist2 = this.colorDistance(color, clusters[1]);
+        if (dist1 < dist2) {
+            clusterAssignments[0].push(color);
+        } else {
+            clusterAssignments[1].push(color);
+        }
     }
 
-    // Calculate average color
-    const avgR = Math.round(colors.reduce((sum, [r]) => sum + r, 0) / colors.length);
-    const avgG = Math.round(colors.reduce((sum, [, g]) => sum + g, 0) / colors.length);
-    const avgB = Math.round(colors.reduce((sum, [, , b]) => sum + b, 0) / colors.length);
-    const averageColor = this.rgbToHex(avgR, avgG, avgB);
+    // Assume the smaller cluster is the text color
+    const textClusterIndex = clusterAssignments[0].length < clusterAssignments[1].length ? 0 : 1;
+    const bgClusterIndex = 1 - textClusterIndex;
 
-    // Determine if background is light or dark to choose optimal text color
-    const brightness = (avgR * 299 + avgG * 587 + avgB * 114) / 1000;
-    const textColor = brightness > 128 ? '#000000' : '#ffffff';
-    
-    // Calculate contrast ratio
-    const contrastRatio = this.calculateContrastRatio(
-      [avgR, avgG, avgB],
-      textColor === '#ffffff' ? [255, 255, 255] : [0, 0, 0]
-    );
+    const textColorRGB = clusters[textClusterIndex];
+    const bgColorRGB = clusters[bgClusterIndex];
 
-    // Get background color variations
-    const backgroundColors = this.extractBackgroundColors(colors);
+    const textColor = this.rgbToHex(textColorRGB[0], textColorRGB[1], textColorRGB[2]);
+    const averageColor = this.rgbToHex(bgColorRGB[0], bgColorRGB[1], bgColorRGB[2]);
+    const dominantColor = textColor;
+
+    const contrastRatio = this.calculateContrastRatio(textColorRGB, bgColorRGB);
 
     return {
       dominantColor,
       averageColor,
       contrastRatio,
       textColor,
-      backgroundColors,
-      confidence: Math.min(maxCount / colors.length, 1)
+      backgroundColors: [averageColor, textColor],
+      confidence: Math.min(0.95, 1 - (Math.abs(clusterAssignments[0].length - clusterAssignments[1].length) / colors.length))
     };
   }
 
@@ -132,15 +126,13 @@ export class AdvancedColorDetector {
   }
 
   private kMeansColors(colors: Array<[number, number, number]>, k: number): Array<[number, number, number]> {
-    if (colors.length <= k) return colors;
+    if (colors.length <= k) return colors.length > 0 ? colors : [[0,0,0]];
     
-    // Simple k-means clustering for color grouping
     let centroids = colors.slice(0, k);
     
     for (let iteration = 0; iteration < 10; iteration++) {
       const clusters: Array<Array<[number, number, number]>> = Array(k).fill(null).map(() => []);
       
-      // Assign each color to nearest centroid
       for (const color of colors) {
         let minDistance = Infinity;
         let nearestCluster = 0;
@@ -152,20 +144,19 @@ export class AdvancedColorDetector {
             nearestCluster = i;
           }
         }
-        
         clusters[nearestCluster].push(color);
       }
       
-      // Update centroids
       const newCentroids: Array<[number, number, number]> = [];
-      for (const cluster of clusters) {
+      for (let i = 0; i < clusters.length; i++) {
+        const cluster = clusters[i];
         if (cluster.length > 0) {
           const avgR = Math.round(cluster.reduce((sum, [r]) => sum + r, 0) / cluster.length);
           const avgG = Math.round(cluster.reduce((sum, [, g]) => sum + g, 0) / cluster.length);
           const avgB = Math.round(cluster.reduce((sum, [, , b]) => sum + b, 0) / cluster.length);
           newCentroids.push([avgR, avgG, avgB]);
         } else {
-          newCentroids.push(centroids[newCentroids.length]);
+          newCentroids.push(centroids[i]);
         }
       }
       

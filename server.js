@@ -254,23 +254,32 @@ app.post('/api/replace-text', async (req, res) => {
       'google/gemini-2.0-flash-001'
     ];
 
-    let styleInstructions = `The new text must perfectly match the style of the surrounding text. Pay extreme attention to the font, thickness, color, lighting, perspective, and any textures or effects on the original text. Blend the new text seamlessly into the image.`;
-
+    let styleInstructions;
     if (fontStyle && colorAnalysis) {
-      styleInstructions = `The new text must perfectly match the style of the original text it is replacing. Use these AI-analyzed properties as a guide for a perfect match:
-- Font: The original font is described as a '${fontStyle.fontWeight}' weight '${fontStyle.fontFamily}'.
-- Color: The original text color is '${colorAnalysis.textColor}' on a background that has an average color of '${colorAnalysis.averageColor}'. The dominant color in the area is '${colorAnalysis.dominantColor}'.
-- Final result: Ensure the new text has the exact same thickness, lighting, perspective, and texture as the original. It must look like it was part of the original image.`;
+      styleInstructions = `
+- **AI Analysis Hint (Color):** The original text color is detected as '${colorAnalysis.textColor}' on a background of '${colorAnalysis.averageColor}'. Use this as a strong hint, but verify against the image.
+- **AI Analysis Hint (Font):** The font weight is estimated as '${fontStyle.fontWeight}'. Prioritize the VISUAL thickness you see in the image.
+- **Your Task:** Replicate the font, thickness, color, lighting, perspective, and texture of the original text with MAXIMUM PRECISION. The new text must look like it was always there.`;
+    } else {
+      styleInstructions = `Pay extreme attention to the font, thickness, color, lighting, perspective, and any textures or effects on the original text. You must replicate this style perfectly for the new text.`;
     }
 
     const locationPrompt = coordinates
-      ? `The text to replace, "${originalText}", is located inside the approximate bounding box (x: ${coordinates.x}%, y: ${coordinates.y}%, width: ${coordinates.width}%, height: ${coordinates.height}%).`
+      ? `The text to replace, "${originalText}", is located inside the approximate bounding box (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%).`
       : `The text to replace is "${originalText}".`;
 
-    const prompt = `You are an expert image editor. Look at this image. Your task is to recreate it exactly, but with one change: replace a piece of text.
-${locationPrompt}
-Replace it with the new text: "${newText}".
-CRITICAL STYLE INSTRUCTIONS: ${styleInstructions}`;
+    const prompt = `You are an expert digital artist specializing in seamless, photorealistic image manipulation.
+Your task is to replace a piece of text in the provided image. The replacement must be undetectable.
+
+**Operation Details:**
+1.  **Locate:** Find the text "${originalText}". ${locationPrompt}
+2.  **Replace:** Replace it with "${newText}".
+
+**CRITICAL STYLE REPLICATION RULES:**
+${styleInstructions}
+
+**FINAL CHECK:** Before outputting, ensure the new text is perfectly blended. It must match the original's style exactly. DO NOT change the color vibrancy or font weight. If the original is dark and bold, the new text must be dark and bold.
+`;
 
 
     for (const model of models) {

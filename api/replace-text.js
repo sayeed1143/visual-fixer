@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageDataUrl, originalText, newText, coordinates } = req.body || {};
+  const { imageDataUrl, originalText, newText, coordinates, fontStyle, colorAnalysis } = req.body || {};
   if (!imageDataUrl || !originalText || !newText) {
     return res.status(400).json({ error: 'Image data, original text, and new text are required' });
   }
@@ -19,31 +19,26 @@ export default async function handler(req, res) {
 
   // Helper to safely extract an image (base64 or URL) from OpenRouter response
   const extractImageFromResponse = (data) => {
-    // New OpenRouter format: check images field first
     const message = data?.choices?.[0]?.message;
     if (message?.images && message.images.length > 0) {
       const image = message.images[0];
       if (image?.image_url?.url) return image.image_url.url;
       if (image?.url) return image.url;
     }
-    
-    // Legacy format: check content field
     const choice = message?.content;
     if (!choice) return null;
-    // If content is an array, look for image-like items
     if (Array.isArray(choice)) {
       for (const item of choice) {
         if (!item) continue;
-        if (item.type === 'image' && item.data) return item.data; // base64
-        if (item.type === 'image_url' && item.image_url?.url) return item.image_url.url; // URL
-        if (item.type === 'output_image' && item.image_url) return item.image_url; // some models
+        if (item.type === 'image' && item.data) return item.data;
+        if (item.type === 'image_url' && item.image_url?.url) return item.image_url.url;
+        if (item.type === 'output_image' && item.image_url) return item.image_url;
         if (typeof item.text === 'string') {
           const m = item.text.match(/data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+/);
           if (m) return m[0];
         }
       }
     }
-    // If content is a string, try to parse base64 data url
     if (typeof choice === 'string') {
       const m = choice.match(/data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+/);
       if (m) return m[0];
@@ -51,14 +46,39 @@ export default async function handler(req, res) {
     return null;
   };
 
-  // Use only models that actually generate images
   const models = [
-    'google/gemini-2.5-flash-image-preview'
+    'black-forest-labs/flux-1.1-pro',
+    'black-forest-labs/flux-dev',
+    'google/gemini-2.0-flash-001'
   ];
 
-  const prompt = coordinates
-    ? `Looking at this image, recreate it exactly but replace the text at position x:${coordinates.x}%, y:${coordinates.y}% with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`
-    : `Looking at this image, recreate it exactly but replace the text "${originalText}" with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`;
+  let styleInstructions;
+  if (fontStyle && colorAnalysis) {
+    styleInstructions = `
+- **AI Analysis Hint (Color):** The original text color is detected as '${colorAnalysis.textColor}' on a background of '${colorAnalysis.averageColor}'. Use this as a strong hint, but verify against the image.
+- **AI Analysis Hint (Font):** The font weight is estimated as '${fontStyle.fontWeight}'. Prioritize the VISUAL thickness you see in the image.
+- **Your Task:** Replicate the font, thickness, color, lighting, perspective, and texture of the original text with MAXIMUM PRECISION. The new text must look like it was always there.`;
+  } else {
+    styleInstructions = `Pay extreme attention to the font, thickness, color, lighting, perspective, and any textures or effects on the original text. You must replicate this style perfectly for the new text.`;
+  }
+
+  const locationPrompt = coordinates
+    ? `The text to replace, "${originalText}", is located inside the approximate bounding box (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%).`
+    : `The text to replace is "${originalText}".`;
+
+  const prompt = `You are an expert digital artist specializing in seamless, photorealistic image manipulation.
+Your task is to replace a piece of text in the provided image. The replacement must be undetectable.
+
+**Operation Details:**
+1.  **Locate:** Find the text "${originalText}". ${locationPrompt}
+2.  **Replace:** Replace it with "${newText}".
+
+**CRITICAL STYLE REPLICATION RULES:**
+${styleInstructions}
+
+**FINAL CHECK:** Before outputting, ensure the new text is perfectly blended. It must match the original's style exactly. DO NOT change the color vibrancy or font weight. If the original is dark and bold, the new text must be dark and bold.
+`;
+
 
   for (const model of models) {
     try {
@@ -71,17 +91,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model,
           messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: imageDataUrl } }
-              ]
-            }
+            { role: 'user', content: [ { type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageDataUrl } } ] }
           ],
           max_tokens: 1000,
           temperature: 0.3,
-          // modalities parameter removed as it can cause 400 errors
         }),
       });
       
