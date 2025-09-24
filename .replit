@@ -8,7 +8,7 @@ channel = "stable-25_05"
 [deployment]
 deploymentTarget = "vm"
 build = ["npm", "run", "build"]
-run = ["node", "server.js"]
+run = ["npm", "start"]
 
 [workflows]
 runButton = "Project"
