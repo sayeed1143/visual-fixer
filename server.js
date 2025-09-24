@@ -239,8 +239,8 @@ app.post('/api/edit-image', async (req, res) => {
 app.post('/api/replace-text', async (req, res) => {
   try {
     const { imageDataUrl, originalText, newText, coordinates, fontStyle, colorAnalysis } = req.body;
-    if (!imageDataUrl || !originalText || !newText) {
-      return res.status(400).json({ error: 'Image data, original text, and new text are required' });
+    if (!imageDataUrl || !originalText || !newText || !coordinates) {
+      return res.status(400).json({ error: 'Image data, original text, new text, and coordinates are required' });
     }
 
     const apiKey = getOpenRouterKey(req);
@@ -254,32 +254,46 @@ app.post('/api/replace-text', async (req, res) => {
       'google/gemini-2.5-flash-image-preview'
     ];
 
-    let styleInstructions;
+    let prompt;
     if (fontStyle && colorAnalysis) {
-      styleInstructions = `
-- **AI Analysis Hint (Color):** The original text color is detected as '${colorAnalysis.textColor}' on a background of '${colorAnalysis.averageColor}'. Use this as a strong hint, but verify against the image.
-- **AI Analysis Hint (Font):** The font weight is estimated as '${fontStyle.fontWeight}'. Prioritize the VISUAL thickness you see in the image.
-- **Your Task:** Replicate the font, thickness, color, lighting, perspective, and texture of the original text with MAXIMUM PRECISION. The new text must look like it was always there.`;
-    } else {
-      styleInstructions = `Pay extreme attention to the font, thickness, color, lighting, perspective, and any textures or effects on the original text. You must replicate this style perfectly for the new text.`;
-    }
+      prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
 
-    const locationPrompt = coordinates
-      ? `The text to replace, "${originalText}", is located inside the approximate bounding box (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%).`
-      : `The text to replace is "${originalText}".`;
+**Task:**
+In the provided image, locate and replace the text "${originalText}" with "${newText}".
 
-    const prompt = `You are an expert digital artist specializing in seamless, photorealistic image manipulation.
-Your task is to replace a piece of text in the provided image. The replacement must be undetectable.
+**Mandatory Directives (Non-negotiable):**
+1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
+2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. This includes:
+    *   **Size:** The font size must be an exact match.
+    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
+    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
+    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
+    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
 
-**Operation Details:**
-1.  **Locate:** Find the text "${originalText}". ${locationPrompt}
-2.  **Replace:** Replace it with "${newText}".
+**Frontend Analysis (Use as a primary guide):**
+- **Color:** The detected text color is '${colorAnalysis.textColor}'. The background is '${colorAnalysis.averageColor}'.
+- **Font Weight:** The estimated font weight is '${fontStyle.fontWeight}'.
 
-**CRITICAL STYLE REPLICATION RULES:**
-${styleInstructions}
-
-**FINAL CHECK:** Before outputting, ensure the new text is perfectly blended. It must match the original's style exactly. DO NOT change the color vibrancy or font weight. If the original is dark and bold, the new text must be dark and bold.
+**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
 `;
+    } else {
+      prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
+
+**Task:**
+In the provided image, locate and replace the text "${originalText}" with "${newText}".
+
+**Mandatory Directives (Non-negotiable):**
+1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
+2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. You must analyze the image yourself to determine these properties. This includes:
+    *   **Size:** The font size must be an exact match.
+    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
+    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
+    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
+    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
+
+**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
+`;
+    }
 
 
     for (const model of models) {
@@ -297,7 +311,6 @@ ${styleInstructions}
             ],
             max_tokens: 1000,
             temperature: 0.3,
-            // modalities parameter removed as it can cause 400 errors
           }),
         });
         if (!response.ok) {
