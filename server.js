@@ -92,16 +92,28 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
+      'google/gemini-2.5-flash',
       'anthropic/claude-3.5-sonnet',
       'openai/gpt-4o',
       'google/gemini-pro-1.5',
-      'google/gemini-2.5-pro',
-      'google/gemini-2.5-flash',
       'openai/gpt-4o-mini',
       'google/gemini-2.0-flash-001',
     ];
 
-    const prompt = `Analyze this image and detect all text elements with high precision. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100 from top-left), width/height (as percentages), and confidence (0-1). Be very accurate with positioning for text replacement. Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]`;
+    const prompt = `You are a professional text detection AI. Analyze this image with extreme precision to detect ALL text elements for accurate replacement.
+
+Provide a JSON array where each text element includes:
+- text: exact text content (preserve case, punctuation, spacing)
+- x, y: coordinates as percentages (0-100) from top-left corner
+- width, height: dimensions as percentages of image size
+- confidence: detection confidence (0-1)
+- fontSize: estimated font size relative to image height (0-100)
+- fontWeight: estimated weight (normal, bold, light)
+- textColor: estimated hex color of the text
+- backgroundColor: estimated hex color behind text
+
+Be extremely precise with measurements for pixel-perfect replacement.
+Format: [{"text":"example","x":10.5,"y":20.3,"width":15.2,"height":5.1,"confidence":0.95,"fontSize":12,"fontWeight":"bold","textColor":"#000000","backgroundColor":"#ffffff"}]`;
 
     for (const model of models) {
       try {
@@ -149,6 +161,10 @@ app.post('/api/detect-text', async (req, res) => {
             width: item.width,
             height: item.height,
             confidence: item.confidence || 0.8,
+            fontSize: item.fontSize || null,
+            fontWeight: item.fontWeight || null,
+            textColor: item.textColor || null,
+            backgroundColor: item.backgroundColor || null,
             model
           }));
           return res.status(200).json({ success: true, detectedTexts, model });
@@ -180,8 +196,6 @@ app.post('/api/edit-image', async (req, res) => {
     }
 
     const models = [
-      'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-dev',
       'google/gemini-2.5-flash-image-preview'
     ];
 
@@ -206,7 +220,7 @@ app.post('/api/edit-image', async (req, res) => {
             ],
             max_tokens: 1000,
             temperature: 0.7,
-            // modalities parameter removed as it can cause 400 errors
+            modalities: ['text', 'image']
           }),
         });
         if (!response.ok) {
@@ -249,50 +263,63 @@ app.post('/api/replace-text', async (req, res) => {
     }
 
     const models = [
-      'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-dev',
       'google/gemini-2.5-flash-image-preview'
     ];
 
     let prompt;
     if (fontStyle && colorAnalysis) {
-      prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
+      prompt = `You are a specialized AI model for PIXEL-PERFECT text replacement. Your expertise is in precisely matching all visual characteristics of existing text.
 
-**Task:**
-In the provided image, locate and replace the text "${originalText}" with "${newText}".
+**CRITICAL MISSION:** Replace "${originalText}" with "${newText}" while maintaining PERFECT visual consistency.
 
-**Mandatory Directives (Non-negotiable):**
-1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
-2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. This includes:
-    *   **Size:** The font size must be an exact match.
-    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
-    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
-    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
-    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
+**EXACT PARAMETERS:**
+- **Location**: Target area is at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+- **Text Color**: EXACTLY match '${colorAnalysis.textColor}' (analyzed from original)
+- **Background**: Blend with '${colorAnalysis.averageColor}' background
+- **Font Weight**: EXACTLY replicate '${fontStyle.fontWeight}' thickness
+- **Font Size**: Scale PRECISELY to match the original text dimensions
+- **Character Spacing**: Preserve original letter and word spacing
 
-**Frontend Analysis (Use as a primary guide):**
-- **Color:** The detected text color is '${colorAnalysis.textColor}'. The background is '${colorAnalysis.averageColor}'.
-- **Font Weight:** The estimated font weight is '${fontStyle.fontWeight}'.
+**FAILURE CONDITIONS:**
+- ANY size difference visible to human eye
+- ANY color variance from specified hex codes
+- ANY thickness/weight difference
+- ANY spacing irregularities
+- ANY blurring or quality degradation
 
-**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
-`;
+**SUCCESS CRITERIA:**
+The replacement must be indistinguishable from the original text. A human observer should not be able to detect that any editing occurred.
+
+Generate the image with "${newText}" replacing "${originalText}" using these exact specifications.`;
     } else {
-      prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
+      prompt = `You are a specialized AI model for PIXEL-PERFECT text replacement. Your expertise is in precisely matching all visual characteristics of existing text.
 
-**Task:**
-In the provided image, locate and replace the text "${originalText}" with "${newText}".
+**CRITICAL MISSION:** Replace "${originalText}" with "${newText}" while maintaining PERFECT visual consistency.
 
-**Mandatory Directives (Non-negotiable):**
-1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
-2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. You must analyze the image yourself to determine these properties. This includes:
-    *   **Size:** The font size must be an exact match.
-    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
-    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
-    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
-    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
+**ANALYSIS REQUIRED:**
+1. **Precise Color Analysis**: Measure the exact hex color of "${originalText}"
+2. **Font Characteristics**: Determine exact font weight, style, and family
+3. **Size Measurements**: Calculate precise font size relative to image dimensions
+4. **Background Integration**: Analyze surrounding background colors and textures
+5. **Effect Detection**: Identify any shadows, outlines, or special effects
 
-**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
-`;
+**EXACT PARAMETERS:**
+- **Location**: Target area is at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+- **Font Size**: MUST match original text dimensions exactly
+- **Character Spacing**: Preserve original letter and word spacing
+- **Alignment**: Maintain exact positioning within the bounding box
+
+**FAILURE CONDITIONS:**
+- ANY size difference visible to human eye
+- ANY color variance from the original
+- ANY thickness/weight difference
+- ANY spacing irregularities
+- ANY blurring or quality degradation
+
+**SUCCESS CRITERIA:**
+The replacement must be indistinguishable from the original text. A human observer should not be able to detect that any editing occurred.
+
+Generate the image with "${newText}" replacing "${originalText}" using these exact specifications.`;
     }
 
 
@@ -310,7 +337,8 @@ In the provided image, locate and replace the text "${originalText}" with "${new
               { role: 'user', content: [ { type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageDataUrl } } ] }
             ],
             max_tokens: 1000,
-            temperature: 0.3,
+            temperature: 0.1,
+            modalities: ['text', 'image']
           }),
         });
         if (!response.ok) {
