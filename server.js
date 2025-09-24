@@ -182,7 +182,7 @@ app.post('/api/edit-image', async (req, res) => {
     const models = [
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-dev',
-      'google/gemini-2.0-flash-001'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     for (const model of models) {
@@ -251,7 +251,7 @@ app.post('/api/replace-text', async (req, res) => {
     const models = [
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-dev',
-      'google/gemini-2.0-flash-001'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     let styleInstructions;

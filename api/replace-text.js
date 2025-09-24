@@ -46,10 +46,11 @@ export default async function handler(req, res) {
     return null;
   };
 
+  // Using only powerful image generation models. Removed text-only models.
   const models = [
     'black-forest-labs/flux-1.1-pro',
     'black-forest-labs/flux-dev',
-    'google/gemini-2.0-flash-001'
+    'google/gemini-2.5-flash-image-preview'
   ];
 
   let styleInstructions;
