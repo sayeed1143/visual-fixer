@@ -8,143 +8,73 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 90% 8%;
-
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 220 90% 8%;
-
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 90% 8%;
-
+    --popover-foreground: 222.2 84% 4.9%;
     --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 210 40% 98%;
     --primary-glow: 262 100% 75%;
-
-    --secondary: 220 15% 95%;
-    --secondary-foreground: 220 90% 8%;
-
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 50% 45%;
-
-    --accent: 220 90% 96%;
-    --accent-foreground: 262 83% 58%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 262 83% 58%;
-
-    --editor-bg: 220 25% 94%;
-    --canvas-bg: 0 0% 100%;
-    --toolbar-bg: 0 0% 100%;
-    --sidebar-bg: 220 15% 98%;
-
-    /* Beautiful gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(262, 83%, 58%), hsl(262, 100%, 75%));
-    --gradient-secondary: linear-gradient(135deg, hsl(220, 20%, 97%), hsl(220, 15%, 95%));
-    --gradient-accent: linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(220, 90%, 60%) 100%);
-    
-    /* Elegant shadows */
-    --shadow-sm: 0 2px 4px hsl(220 20% 20% / 0.08);
-    --shadow-md: 0 4px 12px hsl(220 20% 20% / 0.15);
-    --shadow-lg: 0 8px 24px hsl(220 20% 20% / 0.15);
-    --shadow-glow: 0 0 24px hsl(262 83% 58% / 0.25);
-
-    /* Smooth transitions */
-    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-
-    /* Futuristic elements */
-    --glow-primary: 0 0 20px hsl(262 83% 58% / 0.3);
-    --glow-secondary: 0 0 15px hsl(220 90% 60% / 0.2);
-    --neon-border: 0 0 10px hsl(262 83% 58% / 0.5);
-
-    /* Advanced gradients */
-    --gradient-neural: linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(280, 100%, 70%) 25%, hsl(220, 90%, 60%) 50%, hsl(262, 83%, 58%) 100%);
-    --gradient-cyber: linear-gradient(90deg, hsl(180, 100%, 50%) 0%, hsl(262, 83%, 58%) 50%, hsl(300, 100%, 60%) 100%);
-    --gradient-hologram: linear-gradient(45deg, transparent 30%, hsl(262 83% 58% / 0.1) 50%, transparent 70%);
-    
-    /* Advanced text effects */
-    --text-glow: 0 0 10px currentColor;
-    --text-shadow-strong: 2px 2px 8px hsl(0 0% 0% / 0.3);
-
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-
+    
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 220 30% 8%;
-    --foreground: 220 20% 95%;
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+    --card: 224 71% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 262 83% 68%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 262 100% 80%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 262 83% 68%;
+    --radius: 0.75rem;
 
-    --card: 220 25% 12%;
-    --card-foreground: 220 20% 95%;
+    /* Custom variables for the new theme */
+    --glow-border: 262 83% 68% / 0.4;
+    --glass-bg: 210 30% 15% / 0.5;
 
-    --popover: 220 25% 12%;
-    --popover-foreground: 220 20% 95%;
-
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 262 100% 75%;
-
-    --secondary: 220 25% 15%;
-    --secondary-foreground: 220 20% 95%;
-
-    --muted: 220 25% 15%;
-    --muted-foreground: 220 20% 65%;
-
-    --accent: 220 25% 15%;
-    --accent-foreground: 262 83% 58%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 25% 18%;
-    --input: 220 25% 18%;
-    --ring: 262 83% 58%;
-
-    --editor-bg: 220 30% 10%;
-    --canvas-bg: 220 25% 12%;
-    --toolbar-bg: 220 25% 12%;
-    --sidebar-bg: 220 25% 8%;
-
-    /* Beautiful gradients for dark mode */
-    --gradient-primary: linear-gradient(135deg, hsl(262, 83%, 58%), hsl(262, 100%, 75%));
-    --gradient-secondary: linear-gradient(135deg, hsl(220, 30%, 8%), hsl(220, 25%, 12%));
-    --gradient-accent: linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(220, 90%, 60%) 100%);
-    
-    /* Elegant shadows for dark mode */
-    --shadow-sm: 0 2px 4px hsl(0 0% 0% / 0.3);
-    --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.4);
-    --shadow-lg: 0 8px 24px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 24px hsl(262 83% 58% / 0.4);
-
-    --sidebar-background: 220 30% 8%;
-    --sidebar-foreground: 220 20% 95%;
-    --sidebar-primary: 262 83% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 25% 12%;
-    --sidebar-accent-foreground: 220 20% 95%;
-    --sidebar-border: 220 25% 18%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 262 83% 68%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 262 83% 68%;
   }
 }
 
@@ -155,5 +85,14 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  @supports (font-variation-settings: normal) {
+    body {
+      font-family: 'Inter var', sans-serif;
+    }
   }
 }

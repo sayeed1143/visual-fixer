@@ -1,12 +1,10 @@
-import { Header } from "@/components/Header";
-import { ImageEditor } from "@/components/ImageEditor";
+import { FuturisticImageEditor } from "@/components/FuturisticImageEditor";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <ImageEditor />
-    </div>
+    <main className="min-h-screen bg-background font-sans antialiased">
+      <FuturisticImageEditor />
+    </main>
   );
 };
 

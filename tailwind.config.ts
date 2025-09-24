@@ -82,6 +82,7 @@ export default {
         'glow-secondary': 'var(--glow-secondary)',
         'neon': 'var(--neon-border)',
         'text-glow': 'var(--text-glow)',
+        'glow-border': '0 0 8px hsl(var(--glow-border))',
       },
       transitionTimingFunction: {
         'smooth': 'var(--transition)',
@@ -95,56 +96,32 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
-        "pulse-glow": {
-          "0%, 100%": {
-            opacity: "1",
-            transform: "scale(1)",
-          },
-          "50%": {
-            opacity: "0.8",
-            transform: "scale(1.05)",
-          },
+        "caret-blink": {
+          "0%,70%,100%": { opacity: "1" },
+          "20%,50%": { opacity: "0" },
         },
-        "neural-flow": {
-          "0%, 100%": {
-            backgroundPosition: "0% 50%",
-          },
-          "50%": {
-            backgroundPosition: "100% 50%",
-          },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
         },
-        "hologram": {
-          "0%, 100%": {
-            transform: "translateX(0)",
-            opacity: "0.7",
-          },
-          "50%": {
-            transform: "translateX(10px)",
-            opacity: "1",
-          },
+        "fade-in-down": {
+          from: { opacity: "0", transform: "translateY(-10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-glow": "pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "neural-flow": "neural-flow 3s ease-in-out infinite",
-        "hologram": "hologram 4s ease-in-out infinite",
+        "caret-blink": "caret-blink 1.25s ease-out infinite",
+        "fade-in": "fade-in 0.5s ease-in-out",
+        "fade-in-down": "fade-in-down 0.5s ease-in-out",
       },
     },
   },

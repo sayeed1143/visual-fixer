@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, Object as FabricObject } from "fabric";
+import { Canvas as FabricCanvas } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,15 +11,14 @@ import {
   Zap,
   Upload,
   Download,
-  Target,
-  Sparkles,
   Eye,
   ChevronLeft,
   ChevronRight,
   Maximize2,
   Minimize2,
   Trash2,
-  Share2
+  Share2,
+  Sparkles,
 } from "lucide-react";
 
 interface DetectedText {
@@ -54,7 +53,7 @@ export const FuturisticImageEditor = () => {
         const canvas = new fabric.Canvas(canvasRef.current, {
           width: canvasSize.width,
           height: canvasSize.height,
-          backgroundColor: "#0a0a0a"
+          backgroundColor: "transparent"
         });
         
         setFabricCanvas(canvas);
@@ -128,6 +127,7 @@ export const FuturisticImageEditor = () => {
         img.set({ left: 0, top: 0, selectable: false, evented: false });
         
         fabricCanvas.clear();
+        fabricCanvas.backgroundColor = "transparent";
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
         
@@ -174,7 +174,6 @@ export const FuturisticImageEditor = () => {
         const fabric = await import("fabric");
         const img = await fabric.Image.fromURL(styling.editedImage);
         
-        // Apply the same scaling logic as in handleImageUpload
         const maxWidth = 1400;
         const maxHeight = 900;
         let newWidth = img.width || maxWidth;
@@ -186,16 +185,15 @@ export const FuturisticImageEditor = () => {
           newHeight = newHeight * scale;
         }
         
-        // Update canvas size to match scaled image
         setCanvasSize({ width: newWidth, height: newHeight });
         fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
         
-        // Scale the image to fit properly
         img.scaleToWidth(newWidth);
         img.scaleToHeight(newHeight);
         img.set({ left: 0, top: 0, selectable: false, evented: false });
         
         fabricCanvas.clear();
+        fabricCanvas.backgroundColor = "transparent";
         fabricCanvas.add(img);
         fabricCanvas.renderAll();
         
@@ -205,7 +203,6 @@ export const FuturisticImageEditor = () => {
         
         toast.success("Text replaced with AI precision!");
       } else {
-        // Manual replacement fallback
         toast.info("Manual text replacement applied");
       }
     } catch (error) {
@@ -225,7 +222,7 @@ export const FuturisticImageEditor = () => {
       });
 
       const link = document.createElement('a');
-      link.download = `neural-edit-${Date.now()}.png`;
+      link.download = `snapedit-${Date.now()}.png`;
       link.href = dataURL;
       link.click();
       
@@ -245,43 +242,25 @@ export const FuturisticImageEditor = () => {
         multiplier: 1,
       });
 
-      // Convert data URL to blob for sharing
       const response = await fetch(dataURL);
       const blob = await response.blob();
-      const file = new File([blob], `neural-edit-${Date.now()}.png`, { type: 'image/png' });
+      const file = new File([blob], `snapedit-${Date.now()}.png`, { type: 'image/png' });
 
-      // Check if Web Share API is supported
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: 'SnapEdit - Image Editor',
+          title: 'SnapEdit - AI Image Editor',
           text: 'Check out this image I edited with SnapEdit!',
           files: [file],
         });
         toast.success("Image shared successfully!");
-      } else if (navigator.share) {
-        // Fallback to sharing without files
-        await navigator.share({
-          title: 'SnapEdit - Image Editor',
-          text: 'Check out this amazing image editor I used!',
-          url: window.location.href,
-        });
-        toast.success("Link shared successfully!");
       } else {
-        // Fallback: Copy image data to clipboard
         if (navigator.clipboard && navigator.clipboard.write) {
           await navigator.clipboard.write([
-            new ClipboardItem({
-              'image/png': blob
-            })
+            new ClipboardItem({ 'image/png': blob })
           ]);
           toast.success("Image copied to clipboard!");
         } else {
-          // Ultimate fallback: Download the image
-          const link = document.createElement('a');
-          link.download = `neural-edit-${Date.now()}.png`;
-          link.href = dataURL;
-          link.click();
-          toast.info("Share not supported. Image downloaded instead.");
+          toast.error("Share not supported on your browser.");
         }
       }
     } catch (error) {
@@ -294,7 +273,7 @@ export const FuturisticImageEditor = () => {
     if (!fabricCanvas) return;
     
     fabricCanvas.clear();
-    fabricCanvas.backgroundColor = "#0a0a0a";
+    fabricCanvas.backgroundColor = "transparent";
     setDetectedTexts([]);
     setCurrentImageDataUrl("");
     setSelectedText(null);
@@ -304,54 +283,54 @@ export const FuturisticImageEditor = () => {
   }, [fabricCanvas]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white">
+    <div className={`w-full min-h-screen bg-background text-foreground ${fullscreenMode ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header */}
-      <div className="border-b border-purple-500/30 bg-black/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between p-4">
+      <header className="absolute top-0 left-0 right-0 z-20 border-b border-white/10 bg-background/80 backdrop-blur-xl animate-fade-in-down">
+        <div className="flex items-center justify-between p-4 h-[73px]">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-8 w-8 text-purple-500" />
-              <h1 className="text-2xl font-bold text-white drop-shadow">
-                Neural Text Editor
+              <Sparkles className="h-8 w-8 text-primary" />
+              <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-400">
+                SnapEdit
               </h1>
             </div>
-            <Badge variant="secondary" className="bg-purple-600/30 text-white border-purple-400">
+            <Badge variant="outline" className="border-primary/50 text-primary">
               AI-Powered
             </Badge>
           </div>
           
           <div className="flex items-center space-x-2">
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="border-purple-500/30 hover:bg-purple-500/10"
+              className="text-muted-foreground hover:text-foreground"
             >
-              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              {sidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </Button>
             
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => setFullscreenMode(!fullscreenMode)}
-              className="border-purple-500/30 hover:bg-purple-500/10"
+              className="text-muted-foreground hover:text-foreground"
             >
-              {fullscreenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {fullscreenMode ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="flex h-[calc(100vh-73px)]">
+      <div className="flex h-screen">
         {/* Sidebar */}
-        <div className={`${sidebarCollapsed ? 'w-16' : 'w-96'} transition-all duration-300 border-r border-purple-500/30 bg-black/80 backdrop-blur-xl overflow-y-auto`}>
+        <aside className={`${sidebarCollapsed ? 'w-0 -translate-x-full' : 'w-96'} transition-all duration-300 border-r border-white/10 bg-card/50 backdrop-blur-xl overflow-y-auto pt-[73px] animate-fade-in`}>
           {!sidebarCollapsed && (
             <div className="p-6 space-y-6">
               {/* Upload Section */}
-              <Card className="p-4 bg-purple-500/5 border-purple-500/30">
+              <Card className="p-4 bg-white/5 border-white/10 shadow-lg">
                 <div className="flex items-center mb-3">
-                  <Upload className="mr-2 h-5 w-5 text-purple-500" />
-                  <h3 className="font-semibold text-white">Image Upload</h3>
+                  <Upload className="mr-2 h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-foreground">Image Upload</h3>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -363,21 +342,19 @@ export const FuturisticImageEditor = () => {
                 <Button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isProcessing}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  className="w-full bg-gradient-to-r from-primary to-pink-500 text-white font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-glow"
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   {isProcessing ? "Processing..." : "Upload Image"}
                 </Button>
               </Card>
 
-              {/* Text Detection */}
               <TextDetection
                 onTextDetected={handleTextDetected}
                 imageDataUrl={currentImageDataUrl}
                 disabled={!currentImageDataUrl}
               />
 
-              {/* Advanced Text Replacement */}
               <AdvancedTextReplacement
                 detectedTexts={detectedTexts}
                 selectedText={selectedText}
@@ -387,122 +364,63 @@ export const FuturisticImageEditor = () => {
                 disabled={detectedTexts.length === 0}
               />
 
-              {/* Quick Actions */}
-              <Card className="p-4 bg-purple-500/5 border-purple-500/30">
-                <h3 className="font-semibold text-white mb-3 flex items-center">
-                  <Zap className="mr-2 h-4 w-4 text-purple-500" />
+              <Card className="p-4 bg-white/5 border-white/10 shadow-lg">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center">
+                  <Zap className="mr-2 h-4 w-4 text-primary" />
                   Quick Actions
                 </h3>
                 <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    onClick={exportImage}
-                    variant="outline"
-                    size="sm"
-                    className="border-purple-500/30 hover:bg-purple-500/10"
-                    disabled={!currentImageDataUrl}
-                  >
-                    <Download className="mr-2 h-3 w-3" />
-                    Export
+                  <Button onClick={exportImage} variant="outline" size="sm" disabled={!currentImageDataUrl}>
+                    <Download className="mr-2 h-3 w-3" /> Export
                   </Button>
-                  <Button
-                    onClick={shareImage}
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-500/30 hover:bg-blue-500/10"
-                    disabled={!currentImageDataUrl}
-                  >
-                    <Share2 className="mr-2 h-3 w-3" />
-                    Share
+                  <Button onClick={shareImage} variant="outline" size="sm" disabled={!currentImageDataUrl}>
+                    <Share2 className="mr-2 h-3 w-3" /> Share
                   </Button>
-                  <Button
-                    onClick={clearCanvas}
-                    variant="outline"
-                    size="sm"
-                    className="border-red-500/30 hover:bg-red-500/10"
-                  >
-                    <Trash2 className="mr-2 h-3 w-3" />
-                    Clear
+                  <Button onClick={clearCanvas} variant="destructive" size="sm" className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 hover:text-white">
+                    <Trash2 className="mr-2 h-3 w-3" /> Clear
                   </Button>
                 </div>
               </Card>
 
-              {/* Stats Panel */}
               {detectedTexts.length > 0 && (
-                <Card className="p-4 bg-purple-500/5 border-purple-500/30">
-                  <h3 className="font-semibold text-white mb-3 flex items-center">
-                    <Eye className="mr-2 h-4 w-4 text-purple-500" />
+                <Card className="p-4 bg-white/5 border-white/10 shadow-lg">
+                  <h3 className="font-semibold text-foreground mb-3 flex items-center">
+                    <Eye className="mr-2 h-4 w-4 text-primary" />
                     Detection Stats
                   </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Detected Texts:</span>
-                      <Badge variant="secondary">{detectedTexts.length}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Avg. Confidence:</span>
-                      <Badge variant="secondary">
-                        {Math.round((detectedTexts.reduce((sum, t) => sum + t.confidence, 0) / detectedTexts.length) * 100)}%
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Selected:</span>
-                      <Badge variant={selectedText ? "default" : "secondary"}>
-                        {selectedText ? "1" : "0"}
-                      </Badge>
-                    </div>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex justify-between"><span>Detected Texts:</span><Badge variant="secondary">{detectedTexts.length}</Badge></div>
+                    <div className="flex justify-between"><span>Avg. Confidence:</span><Badge variant="secondary">{Math.round((detectedTexts.reduce((sum, t) => sum + t.confidence, 0) / detectedTexts.length) * 100)}%</Badge></div>
+                    <div className="flex justify-between"><span>Selected:</span><Badge variant={selectedText ? "default" : "secondary"}>{selectedText ? "1" : "0"}</Badge></div>
                   </div>
                 </Card>
               )}
             </div>
           )}
-        </div>
+        </aside>
 
         {/* Main Canvas Area */}
-        <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 opacity-20 pointer-events-none" />
+        <main className="flex-1 relative overflow-hidden pt-[73px] animate-fade-in">
+          <div className="absolute inset-0 bg-grid-pattern opacity-20 pointer-events-none" style={{ maskImage: 'radial-gradient(ellipse at center, white 20%, transparent 70%)' }}/>
           
           <div className="h-full flex items-center justify-center p-6">
-            <div className="relative rounded-lg overflow-hidden shadow-2xl border border-purple-500/30" style={{ width: canvasSize.width, height: canvasSize.height }}>
-              <canvas
-                ref={canvasRef}
-                className="max-w-full max-h-full"
-              />
+            <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-black/50 border border-white/10" style={{ width: canvasSize.width, height: canvasSize.height }}>
+              <canvas ref={canvasRef} className="max-w-full max-h-full" />
 
-              {/* Detection Overlay */}
               {detectedTexts.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none">
                   {detectedTexts.map((t) => {
-                    const norm = (val: number, dim: 'x' | 'y' | 'w' | 'h') => {
-                      // Convert any incoming unit to percentage of canvas
-                      const size = dim === 'x' || dim === 'w' ? canvasSize.width : canvasSize.height;
-                      if (val <= 1) return val * 100; // 0-1
-                      if (val <= 100) return val; // already %
-                      return (val / Math.max(1, size)) * 100; // pixels -> %
-                    };
-                    const left = `${Math.max(0, Math.min(100, norm(t.x, 'x')))}%`;
-                    const top = `${Math.max(0, Math.min(100, norm(t.y, 'y')))}%`;
-                    const width = `${Math.max(0.5, Math.min(100, norm(t.width, 'w')))}%`;
-                    const height = `${Math.max(0.5, Math.min(100, norm(t.height, 'h')))}%`;
                     const isSel = selectedText?.id === t.id;
                     return (
                       <div
                         key={t.id}
-                        className={`absolute rounded-md transition-all ${isSel ? 'ring-2 ring-pink-400' : 'ring-1 ring-purple-400/60'}`}
-                        style={{ left, top, width, height, background: 'rgba(168, 85, 247, 0.12)' }}
+                        className={`absolute rounded-md transition-all duration-300 cursor-pointer group ${isSel ? 'ring-2 ring-pink-400 shadow-glow' : 'ring-1 ring-primary/60 hover:ring-primary'}`}
+                        style={{ left: `${t.x}%`, top: `${t.y}%`, width: `${t.width}%`, height: `${t.height}%`, background: 'hsla(262, 83%, 68%, 0.1)' }}
+                        onClick={() => setSelectedText(t)}
                       >
-                        <button
-                          type="button"
-                          className="absolute top-0 left-0 text-xs px-1.5 py-0.5 rounded-br bg-black/70 text-white border border-purple-500/40 pointer-events-auto"
-                          onClick={() => setSelectedText(t)}
-                          title={`Select: ${t.text}`}
-                        >
-                          {Math.round(t.confidence * 100)}% · {t.text || 'text'}
-                        </button>
-                        <div
-                          className="w-full h-full pointer-events-auto"
-                          onClick={() => setSelectedText(t)}
-                          title={t.text}
-                        />
+                        <div className="absolute -top-6 left-0 text-xs px-1.5 py-0.5 rounded-md bg-card/80 backdrop-blur-sm text-foreground border border-white/10 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          {t.text}
+                        </div>
                       </div>
                     );
                   })}
@@ -512,14 +430,14 @@ export const FuturisticImageEditor = () => {
               {isProcessing && (
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
                   <div className="text-center space-y-4">
-                    <Brain className="h-12 w-12 text-purple-500 animate-pulse mx-auto" />
-                    <p className="text-purple-400 font-medium">Processing Image...</p>
+                    <Brain className="h-12 w-12 text-primary animate-pulse mx-auto" />
+                    <p className="text-primary font-medium">Processing Image...</p>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -1,24 +1,26 @@
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Zap } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export const Header = () => {
   return (
-    <header className="bg-black/80 border-b border-purple-500/30 sticky top-0 z-50 backdrop-blur">
+    <header className="bg-background/80 border-b border-white/10 sticky top-0 z-50 backdrop-blur-xl animate-fade-in-down">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="bg-gradient-primary p-2 rounded-lg">
-            <ImageIcon className="h-6 w-6 text-white" />
+          <div className="p-2 rounded-lg">
+            <Sparkles className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">SnapEdit</h1>
-            <p className="text-xs text-gray-200">Professional Image Editor</p>
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-400">SnapEdit</h1>
+            <p className="text-xs text-muted-foreground">AI Powered Image Editor</p>
           </div>
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" className="text-white border-purple-400 hover:bg-purple-500/10">
-            <Zap className="mr-2 h-4 w-4" />
-            Pro Features
+          <Button variant="ghost">
+            Docs
+          </Button>
+          <Button className="bg-gradient-to-r from-primary to-pink-500 text-white font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-glow">
+            Get Pro
           </Button>
         </div>
       </div>
