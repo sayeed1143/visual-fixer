@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // CORS middleware - restrict to localhost and replit domains for security
@@ -91,93 +91,15 @@ app.post('/api/detect-text', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
-    const models = [
-      'google/gemini-2.5-flash',
-      'anthropic/claude-3.5-sonnet',
-      'openai/gpt-4o',
-      'google/gemini-pro-1.5',
-      'openai/gpt-4o-mini',
-      'google/gemini-2.0-flash-001',
-    ];
-
-    const prompt = `You are a professional text detection AI. Analyze this image with extreme precision to detect ALL text elements for accurate replacement.
-
-Provide a JSON array where each text element includes:
-- text: exact text content (preserve case, punctuation, spacing)
-- x, y: coordinates as percentages (0-100) from top-left corner
-- width, height: dimensions as percentages of image size
-- confidence: detection confidence (0-1)
-- fontSize: estimated font size relative to image height (0-100)
-- fontWeight: estimated weight (normal, bold, light)
-- textColor: estimated hex color of the text
-- backgroundColor: estimated hex color behind text
-
-Be extremely precise with measurements for pixel-perfect replacement.
-Format: [{"text":"example","x":10.5,"y":20.3,"width":15.2,"height":5.1,"confidence":0.95,"fontSize":12,"fontWeight":"bold","textColor":"#000000","backgroundColor":"#ffffff"}]`;
-
-    for (const model of models) {
-      try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: prompt },
-                  { type: 'image_url', image_url: { url: imageDataUrl } }
-                ]
-              }
-            ],
-            max_tokens: 1500,
-            temperature: 0.1
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.log(`Model ${model} failed with status ${response.status}:`, errorText);
-          continue;
-        }
-
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        const textBlob = Array.isArray(content)
-          ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join('\n')
-          : (typeof content === 'string' ? content : '');
-        const jsonMatch = textBlob.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          const detectedTexts = parsed.map((item, index) => ({
-            id: `text-${index}`,
-            text: item.text,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-            height: item.height,
-            confidence: item.confidence || 0.8,
-            fontSize: item.fontSize || null,
-            fontWeight: item.fontWeight || null,
-            textColor: item.textColor || null,
-            backgroundColor: item.backgroundColor || null,
-            model
-          }));
-          return res.status(200).json({ success: true, detectedTexts, model });
-        }
-      } catch (error) {
-        console.log(`Model ${model} failed:`, error.message);
-        // try next model
-        continue;
-      }
+    const result = await detectTextInImage(imageDataUrl, apiKey);
+    
+    if (result.success) {
+      return res.status(200).json(result);
+    } else {
+      return res.status(502).json({ error: result.error || 'All models failed to detect text' });
     }
-
-    return res.status(502).json({ error: 'All models failed to detect text' });
   } catch (error) {
+    console.error('Text detection error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -195,8 +117,14 @@ app.post('/api/edit-image', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
+    // Diversified models for image editing with different strengths
     const models = [
-      'google/gemini-2.5-flash-image-preview'
+      'google/gemini-2.5-flash-image-preview',
+      'anthropic/claude-3.5-sonnet',
+      'openai/gpt-4o',
+      'google/gemini-flash-1.5',
+      'black-forest-labs/flux-1.1-pro',
+      'black-forest-labs/flux-dev'
     ];
 
     for (const model of models) {
@@ -262,8 +190,14 @@ app.post('/api/replace-text', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
+    // Diversified models for text replacement with specialized capabilities
     const models = [
-      'google/gemini-2.5-flash-image-preview'
+      'google/gemini-2.5-flash-image-preview',
+      'anthropic/claude-3.5-sonnet', 
+      'openai/gpt-4o',
+      'black-forest-labs/flux-1.1-pro',
+      'black-forest-labs/flux-dev',
+      'stability-ai/stable-diffusion-3-medium'
     ];
 
     let prompt;
@@ -362,6 +296,207 @@ Generate the image with "${newText}" replacing "${originalText}" using these exa
     return res.status(502).json({ error: 'All models failed to replace text' });
   } catch (error) {
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function for text detection logic (reusable for batch processing)
+const detectTextInImage = async (imageDataUrl, apiKey) => {
+  const models = [
+    'google/gemini-2.5-flash',
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'google/gemini-flash-1.5',
+    'openai/gpt-4o-mini',
+    'anthropic/claude-3.5-haiku',
+    'google/gemini-2.0-flash-001',
+    'meta-llama/llama-3.2-90b-vision-instruct',
+    'qwen/qwen-2-vl-7b-instruct'
+  ];
+
+  const prompt = `You are a professional text detection AI. Analyze this image with extreme precision to detect ALL text elements for accurate replacement.
+
+Provide a JSON array where each text element includes:
+- text: exact text content (preserve case, punctuation, spacing)
+- x, y: coordinates as percentages (0-100) from top-left corner
+- width, height: dimensions as percentages of image size
+- confidence: detection confidence (0-1)
+- fontSize: estimated font size relative to image height (0-100)
+- fontWeight: estimated weight (normal, bold, light)
+- textColor: estimated hex color of the text
+- backgroundColor: estimated hex color behind text
+
+Be extremely precise with measurements for pixel-perfect replacement.
+Format: [{"text":"example","x":10.5,"y":20.3,"width":15.2,"height":5.1,"confidence":0.95,"fontSize":12,"fontWeight":"bold","textColor":"#000000","backgroundColor":"#ffffff"}]`;
+
+  for (const model of models) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: imageDataUrl } }
+              ]
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.1
+        }),
+      });
+
+      if (!response.ok) {
+        console.log(`Model ${model} failed with status ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+      const textBlob = Array.isArray(content)
+        ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join('\n')
+        : (typeof content === 'string' ? content : '');
+      const jsonMatch = textBlob.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const detectedTexts = parsed.map((item, index) => ({
+          id: `text-${index}`,
+          text: item.text,
+          x: item.x,
+          y: item.y,
+          width: item.width,
+          height: item.height,
+          confidence: item.confidence || 0.8,
+          fontSize: item.fontSize || null,
+          fontWeight: item.fontWeight || null,
+          textColor: item.textColor || null,
+          backgroundColor: item.backgroundColor || null,
+          model
+        }));
+        return { success: true, detectedTexts, model };
+      }
+    } catch (error) {
+      console.log(`Model ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  return { success: false, error: 'All models failed to detect text' };
+};
+
+// Batch Text Detection Endpoint
+app.post('/api/batch-detect-text', async (req, res) => {
+  try {
+    const { images } = req.body;
+    if (!images || !Array.isArray(images)) {
+      return res.status(400).json({ error: 'Images array is required' });
+    }
+
+    const apiKey = getOpenRouterKey(req);
+    if (!apiKey) {
+      return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
+    }
+
+    const results = [];
+    const batchSize = 3; // Process 3 images concurrently
+
+    for (let i = 0; i < images.length; i += batchSize) {
+      const batch = images.slice(i, i + batchSize);
+      const promises = batch.map(async (imageData, index) => {
+        try {
+          const result = await detectTextInImage(imageData.dataUrl, apiKey);
+          return { 
+            index: i + index, 
+            success: result.success, 
+            data: result,
+            imageName: imageData.name || `image-${i + index}`
+          };
+        } catch (error) {
+          return { 
+            index: i + index, 
+            success: false, 
+            error: error.message,
+            imageName: imageData.name || `image-${i + index}`
+          };
+        }
+      });
+
+      const batchResults = await Promise.all(promises);
+      results.push(...batchResults);
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    res.json({ 
+      success: true, 
+      results,
+      summary: {
+        total: images.length,
+        successful: successCount,
+        failed: images.length - successCount
+      }
+    });
+  } catch (error) {
+    console.error('Batch processing error:', error);
+    res.status(500).json({ error: 'Batch processing failed' });
+  }
+});
+
+// Image Format Conversion Endpoint
+app.post('/api/convert-image', async (req, res) => {
+  try {
+    const { imageDataUrl, format, quality = 0.9, originalFormat } = req.body;
+    if (!imageDataUrl) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+
+    // If requesting same format as original, return as-is
+    if (format === originalFormat) {
+      return res.json({ success: true, convertedImage: imageDataUrl, format: originalFormat });
+    }
+
+    const canvas = new (await import('canvas')).createCanvas(1, 1);
+    const ctx = canvas.getContext('2d');
+    
+    // For now, we'll handle format conversion on the client side
+    // This endpoint provides the structure for server-side conversion if needed
+    res.json({ 
+      success: true, 
+      convertedImage: imageDataUrl, 
+      format,
+      note: 'Client-side conversion recommended for better performance' 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Image conversion failed' });
+  }
+});
+
+// Batch Export Endpoint
+app.post('/api/batch-export', async (req, res) => {
+  try {
+    const { images, format = 'png', quality = 0.9 } = req.body;
+    if (!images || !Array.isArray(images)) {
+      return res.status(400).json({ error: 'Images array is required' });
+    }
+
+    const results = images.map((imageData, index) => ({
+      index,
+      success: true,
+      data: {
+        image: imageData.dataUrl,
+        format,
+        filename: `snapedit-${Date.now()}-${index}.${format}`
+      }
+    }));
+
+    res.json({ success: true, results });
+  } catch (error) {
+    res.status(500).json({ error: 'Batch export failed' });
   }
 });
 

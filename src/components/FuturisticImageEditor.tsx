@@ -3,9 +3,12 @@ import { Canvas as FabricCanvas } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { TextDetection } from "./TextDetection";
 import { AdvancedTextReplacement } from "./AdvancedTextReplacement";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 import {
   Brain,
   Zap,
@@ -19,6 +22,8 @@ import {
   Trash2,
   Share2,
   Sparkles,
+  FileImage,
+  Settings,
 } from "lucide-react";
 
 interface DetectedText {
@@ -42,6 +47,11 @@ export const FuturisticImageEditor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [fullscreenMode, setFullscreenMode] = useState(false);
+  const [exportFormat, setExportFormat] = useState('png');
+  const [exportQuality, setExportQuality] = useState(0.9);
+  const [originalFormat, setOriginalFormat] = useState('png');
+  const [batchImages, setBatchImages] = useState<any[]>([]);
+  const [batchResults, setBatchResults] = useState<any[]>([]);
 
   // Initialize the canvas
   useEffect(() => {
@@ -104,6 +114,11 @@ export const FuturisticImageEditor = () => {
         if (!imgUrl) throw new Error('Failed to read file');
         
         setCurrentImageDataUrl(imgUrl);
+        
+        // Detect original format from file
+        const detectedFormat = file.type.split('/')[1] || 'png';
+        setOriginalFormat(detectedFormat);
+        setExportFormat(detectedFormat);
         
         const fabric = await import("fabric");
         const img = await fabric.Image.fromURL(imgUrl);
@@ -211,26 +226,171 @@ export const FuturisticImageEditor = () => {
     }
   }, [fabricCanvas, currentImageDataUrl]);
 
-  const exportImage = useCallback(() => {
+  const exportImage = useCallback((format = exportFormat, quality = exportQuality) => {
     if (!fabricCanvas) return;
 
     try {
+      let outputFormat = format;
+      let mimeType = 'image/png';
+      
+      // Handle different export formats
+      switch (format) {
+        case 'jpg':
+        case 'jpeg':
+          outputFormat = 'jpeg';
+          mimeType = 'image/jpeg';
+          break;
+        case 'webp':
+          outputFormat = 'webp';
+          mimeType = 'image/webp';
+          break;
+        case 'pdf':
+          // For PDF, we'll export as high-quality PNG first
+          outputFormat = 'png';
+          mimeType = 'image/png';
+          quality = 1;
+          break;
+        default:
+          outputFormat = 'png';
+          mimeType = 'image/png';
+      }
+
       const dataURL = fabricCanvas.toDataURL({
-        format: 'png',
-        quality: 1,
+        format: outputFormat as 'png' | 'jpeg' | 'webp',
+        quality: outputFormat === 'png' ? 1 : quality,
         multiplier: 2,
       });
 
+      // For PDF export, convert to PDF
+      if (format === 'pdf') {
+        exportAsPDF(dataURL);
+        return;
+      }
+
       const link = document.createElement('a');
-      link.download = `snapedit-${Date.now()}.png`;
+      link.download = `snapedit-${Date.now()}.${format}`;
       link.href = dataURL;
       link.click();
       
-      toast.success("Image exported!");
+      toast.success(`Image downloaded as ${format.toUpperCase()}!`);
     } catch (error) {
+      console.error('Export error:', error);
       toast.error("Export failed");
     }
-  }, [fabricCanvas]);
+  }, [fabricCanvas, exportFormat, exportQuality]);
+
+  const exportAsPDF = useCallback((imageDataURL: string) => {
+    try {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Create PDF with proper dimensions
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [img.width, img.height]
+        });
+        
+        // Add image to PDF
+        pdf.addImage(imageDataURL, 'PNG', 0, 0, img.width, img.height);
+        
+        // Download PDF
+        pdf.save(`snapedit-${Date.now()}.pdf`);
+        
+        toast.success("PDF export completed!");
+      };
+      
+      img.onerror = () => {
+        toast.error("Failed to load image for PDF export");
+      };
+      
+      img.src = imageDataURL;
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error("PDF export failed");
+    }
+  }, []);
+
+  const handleBatchUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (!files.length) return;
+
+    toast.loading(`Processing ${files.length} images...`);
+    
+    const newBatchImages: any[] = [];
+    let processedCount = 0;
+
+    files.forEach((file, index) => {
+      if (!file.type.startsWith('image/')) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newBatchImages.push({
+          id: `batch-${Date.now()}-${index}`,
+          name: file.name,
+          dataUrl: e.target?.result as string,
+          format: file.type.split('/')[1]
+        });
+        
+        processedCount++;
+        if (processedCount === files.length) {
+          setBatchImages((prev: any[]) => [...prev, ...newBatchImages]);
+          toast.success(`Added ${newBatchImages.length} images to batch`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const processBatch = useCallback(async () => {
+    if (!batchImages.length) {
+      toast.error("No images in batch");
+      return;
+    }
+
+    setIsProcessing(true);
+    const loadingToast = toast.loading(`Processing batch of ${batchImages.length} images...`);
+
+    try {
+      const response = await fetch('/api/batch-detect-text', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-openrouter-key': process.env.OPENROUTER_API_KEY || ''
+        },
+        body: JSON.stringify({ images: batchImages }),
+      });
+
+      const result = await response.json();
+      toast.dismiss(loadingToast);
+      
+      if (result.success && result.summary) {
+        const { total, successful, failed } = result.summary;
+        
+        if (successful === total) {
+          toast.success(`✅ Batch completed! All ${total} images processed successfully.`);
+        } else if (successful > 0) {
+          toast.success(`⚠️ Batch completed! ${successful}/${total} images processed successfully. ${failed} failed.`, {
+            description: "Check individual results below."
+          });
+        } else {
+          toast.error(`❌ Batch failed! All ${total} images failed to process.`);
+        }
+        
+        // Store detailed results for UI display
+        setBatchResults(result.results);
+        console.log('Batch processing results:', result.results);
+      } else {
+        toast.error("Batch processing failed");
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error('Batch processing error:', error);
+      toast.error("Batch processing error");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [batchImages]);
 
   const shareImage = useCallback(async () => {
     if (!fabricCanvas) return;
@@ -369,18 +529,90 @@ export const FuturisticImageEditor = () => {
                   <Zap className="mr-2 h-4 w-4 text-primary" />
                   Quick Actions
                 </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button onClick={exportImage} variant="outline" size="sm" disabled={!currentImageDataUrl}>
-                    <Download className="mr-2 h-3 w-3" /> Export
-                  </Button>
-                  <Button onClick={shareImage} variant="outline" size="sm" disabled={!currentImageDataUrl}>
-                    <Share2 className="mr-2 h-3 w-3" /> Share
-                  </Button>
-                  <Button onClick={clearCanvas} variant="destructive" size="sm" className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 hover:text-white">
-                    <Trash2 className="mr-2 h-3 w-3" /> Clear
-                  </Button>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <Label className="text-muted-foreground">Format</Label>
+                      <Select value={exportFormat} onValueChange={setExportFormat}>
+                        <SelectTrigger className="bg-background/50 border-white/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={originalFormat}>Original ({originalFormat.toUpperCase()})</SelectItem>
+                          <SelectItem value="png">PNG</SelectItem>
+                          <SelectItem value="jpg">JPG</SelectItem>
+                          <SelectItem value="webp">WebP</SelectItem>
+                          <SelectItem value="pdf">PDF</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Quality</Label>
+                      <Select value={exportQuality.toString()} onValueChange={(v) => setExportQuality(parseFloat(v))}>
+                        <SelectTrigger className="bg-background/50 border-white/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0.6">Low (60%)</SelectItem>
+                          <SelectItem value="0.8">Medium (80%)</SelectItem>
+                          <SelectItem value="0.9">High (90%)</SelectItem>
+                          <SelectItem value="1.0">Maximum (100%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button onClick={() => exportImage()} variant="outline" size="sm" disabled={!currentImageDataUrl}>
+                      <Download className="mr-2 h-3 w-3" /> Download
+                    </Button>
+                    <Button onClick={shareImage} variant="outline" size="sm" disabled={!currentImageDataUrl}>
+                      <Share2 className="mr-2 h-3 w-3" /> Share
+                    </Button>
+                    <Button onClick={clearCanvas} variant="destructive" size="sm" className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 hover:text-white">
+                      <Trash2 className="mr-2 h-3 w-3" /> Clear
+                    </Button>
+                  </div>
                 </div>
               </Card>
+
+              {batchResults.length > 0 && (
+                <Card className="p-4 bg-white/5 border-white/10 shadow-lg">
+                  <h3 className="font-semibold text-foreground mb-3 flex items-center">
+                    <FileImage className="mr-2 h-4 w-4 text-primary" />
+                    Batch Results
+                  </h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {batchResults.map((result, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 rounded bg-background/30 border border-white/10">
+                        <div className="flex-1 text-sm truncate">
+                          <span className="text-foreground">{result.imageName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {result.success ? (
+                            <>
+                              <Badge variant="outline" className="text-green-400 border-green-400/50">
+                                ✓ {result.data?.detectedTexts?.length || 0} texts
+                              </Badge>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="text-red-400 border-red-400/50">
+                              ✗ Failed
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button 
+                    onClick={() => setBatchResults([])} 
+                    size="sm" 
+                    variant="ghost" 
+                    className="w-full mt-2 text-muted-foreground"
+                  >
+                    Clear Results
+                  </Button>
+                </Card>
+              )}
 
               {detectedTexts.length > 0 && (
                 <Card className="p-4 bg-white/5 border-white/10 shadow-lg">
