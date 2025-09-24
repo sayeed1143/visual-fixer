@@ -92,12 +92,13 @@ app.post('/api/detect-text', async (req, res) => {
     }
 
     const models = [
-      'google/gemini-2.0-flash-001',
-      'google/gemini-1.5-flash',
-      'google/gemini-pro-1.5',
+      'anthropic/claude-3.5-sonnet',
       'openai/gpt-4o',
+      'google/gemini-pro-1.5',
+      'google/gemini-2.5-pro',
+      'google/gemini-2.5-flash',
       'openai/gpt-4o-mini',
-      'anthropic/claude-3.5-sonnet'
+      'google/gemini-2.0-flash-001',
     ];
 
     const prompt = `Analyze this image and detect all text elements with high precision. Return a JSON array with each text element containing: text content, x/y coordinates (as percentages 0-100 from top-left), width/height (as percentages), and confidence (0-1). Be very accurate with positioning for text replacement. Format: [{"text":"example","x":10,"y":20,"width":15,"height":5,"confidence":0.95}]`;
@@ -237,7 +238,7 @@ app.post('/api/edit-image', async (req, res) => {
 // Text Replacement Endpoint (Specific use case)
 app.post('/api/replace-text', async (req, res) => {
   try {
-    const { imageDataUrl, originalText, newText, coordinates } = req.body;
+    const { imageDataUrl, originalText, newText, coordinates, fontStyle, colorAnalysis } = req.body;
     if (!imageDataUrl || !originalText || !newText) {
       return res.status(400).json({ error: 'Image data, original text, and new text are required' });
     }
@@ -253,9 +254,24 @@ app.post('/api/replace-text', async (req, res) => {
       'google/gemini-2.0-flash-001'
     ];
 
-    const prompt = coordinates
-      ? `Looking at this image, recreate it exactly but replace the text at position x:${coordinates.x}%, y:${coordinates.y}% with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`
-      : `Looking at this image, recreate it exactly but replace the text "${originalText}" with "${newText}". Keep everything else identical - same colors, fonts, layout, background, and style.`;
+    let styleInstructions = `The new text must perfectly match the style of the surrounding text. Pay extreme attention to the font, thickness, color, lighting, perspective, and any textures or effects on the original text. Blend the new text seamlessly into the image.`;
+
+    if (fontStyle && colorAnalysis) {
+      styleInstructions = `The new text must perfectly match the style of the original text it is replacing. Use these AI-analyzed properties as a guide for a perfect match:
+- Font: The original font is described as a '${fontStyle.fontWeight}' weight '${fontStyle.fontFamily}'.
+- Color: The original text color is '${colorAnalysis.textColor}' on a background that has an average color of '${colorAnalysis.averageColor}'. The dominant color in the area is '${colorAnalysis.dominantColor}'.
+- Final result: Ensure the new text has the exact same thickness, lighting, perspective, and texture as the original. It must look like it was part of the original image.`;
+    }
+
+    const locationPrompt = coordinates
+      ? `The text to replace, "${originalText}", is located inside the approximate bounding box (x: ${coordinates.x}%, y: ${coordinates.y}%, width: ${coordinates.width}%, height: ${coordinates.height}%).`
+      : `The text to replace is "${originalText}".`;
+
+    const prompt = `You are an expert image editor. Look at this image. Your task is to recreate it exactly, but with one change: replace a piece of text.
+${locationPrompt}
+Replace it with the new text: "${newText}".
+CRITICAL STYLE INSTRUCTIONS: ${styleInstructions}`;
+
 
     for (const model of models) {
       try {
