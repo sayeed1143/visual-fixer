@@ -202,10 +202,14 @@ app.post('/api/replace-text', async (req, res) => {
 
     let prompt;
     if (fontStyle && colorAnalysis) {
-      prompt = `You are a world-class image forensics expert specializing in PIXEL-PERFECT text replacement. Your task is to perform invisible text replacement that maintains absolute visual fidelity.
+      // Detect if this is financial/numerical data for specialized handling
+      const isFinancialData = /[£$€¥₹₨]|[0-9,]+\.[0-9]{2}|\b\d{1,3}(,\d{3})*(\.\d{2})?\b/.test(originalText + newText);
+      
+      prompt = `You are a world-class image forensics expert specializing in PIXEL-PERFECT text replacement with expertise in financial app interface replication. Your task is to perform invisible text replacement that maintains absolute visual fidelity.
 
 **CRITICAL ANALYSIS & REPLACEMENT MISSION:**
 Replace "${originalText}" with "${newText}" while preserving EVERY visual characteristic with forensic precision.
+${isFinancialData ? '\n**SPECIAL FINANCIAL DATA REQUIREMENTS:**\nThis appears to be financial/numerical data. Apply EXTRA precision for currency symbols, number formatting, decimal alignment, and banking app font characteristics.' : ''}
 
 **MANDATORY PRE-REPLACEMENT ANALYSIS:**
 1. **Color Analysis**: Measure exact RGB/HSL values of text color '${colorAnalysis.textColor}'
@@ -218,11 +222,12 @@ Replace "${originalText}" with "${newText}" while preserving EVERY visual charac
 - **Exact Location**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
 - **Color Matching**: Use EXACT hex color '${colorAnalysis.textColor}' - no variation allowed
 - **Background Integration**: Seamlessly blend with background '${colorAnalysis.averageColor}'
-- **Font Replication**: Match font weight '${fontStyle.fontWeight}' and thickness precisely
-- **Size Precision**: Scale to match original dimensions exactly
+- **Font Replication**: Match font weight '${fontStyle.fontWeight}' and thickness precisely - pay special attention to numerical font weight consistency
+- **Size Precision**: Scale to match original dimensions exactly - crucial for financial data where size differences are immediately noticeable
 - **Character Metrics**: Preserve original letter-spacing, word-spacing, and baseline
 - **Antialiasing**: Match original text's edge smoothing and rendering quality
 - **Effects Preservation**: Replicate any shadows, outlines, or special effects
+${isFinancialData ? '- **Currency Symbol Precision**: Ensure currency symbols (£, $, €) match exact size, weight, and positioning relative to numbers\n- **Decimal Alignment**: Maintain precise decimal point alignment and number spacing\n- **Banking Font Characteristics**: Replicate the clean, professional banking app font style with exact thickness and weight\n- **Number Formatting**: Preserve comma separators, decimal places, and numerical spacing precisely' : ''}
 
 **QUALITY ASSURANCE CHECKS:**
 - Text edges must be identical to original smoothness
@@ -241,10 +246,14 @@ Replace "${originalText}" with "${newText}" while preserving EVERY visual charac
 
 Generate the perfect replacement image where "${newText}" replaces "${originalText}" with complete visual invisibility of the edit.`;
     } else {
-      prompt = `You are a world-class forensic image analyst specializing in INVISIBLE text replacement. Your mission is to perform comprehensive visual analysis and create a perfect replacement that cannot be detected by human inspection.
+      // Detect if this is financial/numerical data for specialized handling
+      const isFinancialData = /[£$€¥₹₨]|[0-9,]+\.[0-9]{2}|\b\d{1,3}(,\d{3})*(\.\d{2})?\b/.test(originalText + newText);
+      
+      prompt = `You are a world-class forensic image analyst specializing in INVISIBLE text replacement with expertise in banking and financial app interfaces. Your mission is to perform comprehensive visual analysis and create a perfect replacement that cannot be detected by human inspection.
 
 **COMPREHENSIVE ANALYSIS MISSION:**
 Replace "${originalText}" with "${newText}" after conducting thorough forensic analysis of ALL visual characteristics.
+${isFinancialData ? '\n**CRITICAL FINANCIAL DATA NOTICE:**\nThis appears to be financial/numerical data from a banking or financial app. Apply MAXIMUM precision for currency symbols, number formatting, decimal alignment, and professional banking app font characteristics. Even tiny differences in thickness, weight, or spacing will be immediately visible to users.' : ''}
 
 **MANDATORY DETAILED ANALYSIS (Perform in this exact order):**
 1. **Color Forensics**: Measure precise RGB/HSL values of the text "${originalText}"
@@ -258,11 +267,12 @@ Replace "${originalText}" with "${newText}" after conducting thorough forensic a
 **PRECISION REPLACEMENT PARAMETERS:**
 - **Exact Coordinates**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
 - **Color Matching**: Use EXACT analyzed color - zero tolerance for variation
-- **Font Replication**: Match analyzed font characteristics with perfect precision
-- **Size Replication**: Scale to match original dimensions exactly
+- **Font Replication**: Match analyzed font characteristics with perfect precision - critical for banking/financial app fonts
+- **Size Replication**: Scale to match original dimensions exactly - any size difference will be immediately noticeable in financial data
 - **Background Reconstruction**: Seamlessly reconstruct background where text was removed
 - **Effect Replication**: Recreate any shadows, outlines, or special effects precisely
 - **Antialiasing Matching**: Replicate original edge smoothing quality
+${isFinancialData ? '- **Currency Symbol Analysis**: Analyze and replicate exact size, weight, and positioning of currency symbols (£, $, €)\n- **Numerical Precision**: Maintain precise decimal alignment, comma separators, and number spacing\n- **Banking Font Weight**: Analyze and replicate the specific font weight and thickness used in banking applications\n- **Professional Appearance**: Ensure replacement maintains the clean, professional appearance expected in financial interfaces' : ''}
 
 **FORENSIC QUALITY STANDARDS:**
 - Text must appear as if it was originally created, not edited
