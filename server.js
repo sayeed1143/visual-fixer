@@ -117,14 +117,9 @@ app.post('/api/edit-image', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
-    // Valid models for image editing - using only verified working models
+    // Valid models for image editing - using only verified working image generation models
     const models = [
-      'google/gemini-2.5-flash-image-preview',
-      'anthropic/claude-3.5-sonnet',
-      'openai/gpt-4o',
-      'google/gemini-flash-1.5',
-      'stability-ai/stable-diffusion-3-medium',
-      'google/gemini-2.0-flash-001'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     for (const model of models) {
@@ -190,14 +185,9 @@ app.post('/api/replace-text', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
-    // Valid models for text replacement - focusing on accuracy and analysis
+    // Valid models for text replacement - using only verified working image generation models
     const models = [
-      'google/gemini-2.5-flash-image-preview',
-      'anthropic/claude-3.5-sonnet', 
-      'openai/gpt-4o',
-      'google/gemini-2.0-flash-001',
-      'google/gemini-flash-1.5',
-      'stability-ai/stable-diffusion-3-medium'
+      'google/gemini-2.5-flash-image-preview'
     ];
 
     let prompt;

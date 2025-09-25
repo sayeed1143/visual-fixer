@@ -47,50 +47,126 @@ export default async function handler(req, res) {
   };
 
   const models = [
-    'black-forest-labs/flux-1.1-pro',
-    'black-forest-labs/flux-dev',
     'google/gemini-2.5-flash-image-preview'
   ];
 
+  // Detect if this is financial/numerical data for specialized handling
+  const isFinancialData = /[£$€¥₹₨]|[0-9,]+\.[0-9]{2}|\b\d{1,3}(,\d{3})*(\.\d{2})?\b/.test(originalText + newText);
+  
+  // Analyze typography components for mixed sizing in financial amounts
+  const analyzeFinancialComponents = (text) => {
+    const components = {
+      currency: '',
+      mainAmount: '',
+      decimal: '',
+      cents: '',
+      hasMixedSizing: false
+    };
+    
+    // Match patterns like "£ 2,906.01" or "$1,234.56"
+    const match = text.match(/([£$€¥₹₨]?)\s*([0-9,]+)(\.)([0-9]{1,2})/);
+    if (match) {
+      components.currency = match[1] || '';
+      components.mainAmount = match[2];
+      components.decimal = match[3];
+      components.cents = match[4];
+      components.hasMixedSizing = true;
+    }
+    return components;
+  };
+  
+  const originalComponents = analyzeFinancialComponents(originalText);
+  const newComponents = analyzeFinancialComponents(newText);
+  const hasMixedTypography = originalComponents.hasMixedSizing && newComponents.hasMixedSizing && 
+                             originalComponents.cents && newComponents.cents;
+
   let prompt;
   if (fontStyle && colorAnalysis) {
-    prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
+    prompt = `You are a world-class forensic image specialist expert in INVISIBLE text replacement with expertise in banking and financial app interfaces. Your mission is to perform pixel-perfect text replacement that cannot be detected by human inspection.
 
-**Task:**
-In the provided image, locate and replace the text "${originalText}" with "${newText}".
+**CRITICAL REPLACEMENT MISSION:**
+Replace "${originalText}" with "${newText}" while preserving EVERY visual characteristic with absolute forensic precision.
 
-**Mandatory Directives (Non-negotiable):**
-1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
-2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. This includes:
-    *   **Size:** The font size must be an exact match.
-    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
-    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
-    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
-    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
+${isFinancialData ? `**🏦 CRITICAL FINANCIAL DATA ANALYSIS:**
+This is financial/numerical data from a banking app. Apply MAXIMUM precision for currency symbols, number formatting, decimal alignment, and banking app font characteristics. Even tiny differences in thickness, weight, or spacing will be immediately visible to users.` : ''}
 
-**Frontend Analysis (Use as a primary guide):**
-- **Color:** The detected text color is '${colorAnalysis.textColor}'. The background is '${colorAnalysis.averageColor}'.
-- **Font Weight:** The estimated font weight is '${fontStyle.fontWeight}'.
+${hasMixedTypography ? `**💰 MIXED TYPOGRAPHY DETECTION:**
+Financial amount detected with different component sizes:
+- ORIGINAL: "${originalComponents.currency}${originalComponents.mainAmount}${originalComponents.decimal}${originalComponents.cents}"
+- NEW: "${newComponents.currency}${newComponents.mainAmount}${newComponents.decimal}${newComponents.cents}"
 
-**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
-`;
+**MANDATORY COMPONENT-SPECIFIC SIZING:**
+1. **FIRST**: Measure the pixel height of main amount "${originalComponents.mainAmount}" (this is your 100% baseline)
+2. **SECOND**: Measure the pixel height of cents ".${originalComponents.cents}" and calculate exact ratio
+3. **CRITICAL**: If cents are smaller than main amount, apply EXACT same ratio to new text
+4. **APPLY**: Main "${newComponents.mainAmount}" = baseline size, Cents ".${newComponents.cents}" = measured ratio size
+5. **BASELINE**: Maintain identical baseline alignment for all components` : ''}
+
+**MANDATORY PRE-REPLACEMENT FORENSIC ANALYSIS:**
+1. **Color Forensics**: Use EXACT hex color '${colorAnalysis.textColor}' - zero tolerance for variation
+2. **Font Weight Analysis**: The detected font weight is '${fontStyle.fontWeight}' - replicate this EXACT thickness
+3. **Background Integration**: Seamlessly blend with background '${colorAnalysis.averageColor}'
+4. **Dimensional Analysis**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with exact dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+
+**CRITICAL SUCCESS CRITERIA:**
+- Color MUST be identical (${colorAnalysis.textColor})
+- Font weight MUST match original thickness ('${fontStyle.fontWeight}')
+- Size relationships MUST be preserved exactly
+- Background MUST appear undisturbed
+- NO visible editing artifacts
+- Text MUST appear as if originally typed
+
+${isFinancialData ? '**BANKING APP REQUIREMENTS:**\n- Currency symbols must match exact size and weight\n- Decimal alignment must be precise\n- Number spacing must be identical\n- Font thickness must match banking app standards' : ''}
+
+Execute perfect replacement where "${newText}" replaces "${originalText}" with complete visual invisibility.`;
   } else {
-    prompt = `You are a specialized AI model for high-fidelity, pixel-perfect text inpainting. Your sole function is to replace text while flawlessly matching the original styling.
+    prompt = `You are a world-class forensic image analyst specializing in INVISIBLE text replacement. Your mission is to perform comprehensive visual analysis and create a perfect replacement that cannot be detected by human inspection.
 
-**Task:**
-In the provided image, locate and replace the text "${originalText}" with "${newText}".
+**COMPREHENSIVE ANALYSIS MISSION:**
+Replace "${originalText}" with "${newText}" after conducting thorough forensic analysis of ALL visual characteristics.
 
-**Mandatory Directives (Non-negotiable):**
-1.  **Exact Location:** The target text, "${originalText}", is within the bounding box: (x: ${coordinates.x.toFixed(2)}%, y: ${coordinates.y.toFixed(2)}%, width: ${coordinates.width.toFixed(2)}%, height: ${coordinates.height.toFixed(2)}%). Perform the replacement ONLY within this area.
-2.  **Style Replication:** The new text, "${newText}", MUST be rendered with the IDENTICAL visual properties of the original text. You must analyze the image yourself to determine these properties. This includes:
-    *   **Size:** The font size must be an exact match.
-    *   **Thickness (Font Weight):** The boldness or thinness of the characters must be replicated perfectly.
-    *   **Color:** The exact color, including any gradients or subtle variations, must be matched.
-    *   **Font Family:** Match the font style (serif, sans-serif, etc.) as closely as possible.
-    *   **Blending:** The new text must blend seamlessly with the background texture, lighting, and any effects (shadows, glows) present on the original text.
+${isFinancialData ? `**🏦 CRITICAL FINANCIAL DATA NOTICE:**
+This appears to be financial/numerical data from a banking or financial app. Apply MAXIMUM precision for currency symbols, number formatting, decimal alignment, and professional banking app font characteristics. Even tiny differences in thickness, weight, or spacing will be immediately visible to users.` : ''}
 
-**Final Output Rule:** The result must look like the text was never edited. Any deviation in size, thickness, or color from the original text is a failure.
-`;
+${hasMixedTypography ? `**💰 MIXED TYPOGRAPHY ANALYSIS:**
+Financial amount detected with different component sizes:
+- ORIGINAL COMPONENTS: "${originalComponents.currency}${originalComponents.mainAmount}${originalComponents.decimal}${originalComponents.cents}"
+- NEW COMPONENTS: "${newComponents.currency}${newComponents.mainAmount}${newComponents.decimal}${newComponents.cents}"
+
+**COMPONENT-SPECIFIC MEASUREMENT & ANALYSIS:**
+1. MEASURE original main amount "${originalComponents.mainAmount}" pixel height (baseline reference)
+2. MEASURE original cents ".${originalComponents.cents}" pixel height and calculate exact size ratio
+3. DETERMINE if cents are smaller than main amount (common in banking apps)
+4. REPLICATE measured size ratio exactly for new text: "${newComponents.mainAmount}" vs ".${newComponents.cents}"
+5. MAINTAIN identical baseline alignment and spacing relationships` : ''}
+
+**MANDATORY DETAILED FORENSIC ANALYSIS (Perform in exact order):**
+1. **Color Forensics**: Measure precise RGB/HSL values of the text "${originalText}"
+2. **Typography Forensics**: Determine exact font family, weight (100-900 scale), style, and characteristics
+3. **Dimensional Forensics**: Calculate precise font size and proportions relative to image
+4. **Background Forensics**: Analyze surrounding colors, gradients, textures, and patterns
+5. **Effect Forensics**: Detect shadows, outlines, gradients, or special text effects
+6. **Edge Forensics**: Analyze antialiasing patterns and edge smoothing techniques
+7. **Spacing Forensics**: Measure letter-spacing, word-spacing, and baseline positioning
+
+**PRECISION REPLACEMENT PARAMETERS:**
+- **Exact Coordinates**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+- **Color Matching**: Use EXACT analyzed color - zero tolerance for variation
+- **Font Replication**: Match analyzed font characteristics with perfect precision
+- **Size Replication**: Scale to match original dimensions exactly
+- **Background Reconstruction**: Seamlessly reconstruct background where text was removed
+- **Effect Replication**: Recreate any shadows, outlines, or special effects precisely
+
+${isFinancialData ? '**BANKING INTERFACE PRECISION:**\n- Analyze and replicate exact currency symbol positioning and weight\n- Maintain precise decimal alignment and number spacing\n- Replicate clean, professional banking app font characteristics\n- Ensure replacement maintains financial interface credibility' : ''}
+
+**FORENSIC QUALITY STANDARDS:**
+- Text must appear as if originally created, not edited
+- Background must show no signs of manipulation
+- Color gradients and textures must be perfectly preserved
+- Edge quality must be identical to original rendering
+- NO visible artifacts, inconsistencies, or editing traces
+
+Execute perfect forensic replacement of "${originalText}" with "${newText}" maintaining absolute visual invisibility.`;
   }
 
 
@@ -109,6 +185,7 @@ In the provided image, locate and replace the text "${originalText}" with "${new
           ],
           max_tokens: 1000,
           temperature: 0.3,
+          modalities: ['text', 'image']
         }),
       });
       

@@ -51,10 +51,8 @@ export default async function handler(req, res) {
     return null;
   };
 
-  // Use a robust list of powerful image generation models
+  // Use only verified working image generation models
   const models = [
-    'black-forest-labs/flux-1.1-pro',
-    'black-forest-labs/flux-dev',
     'google/gemini-2.5-flash-image-preview'
   ];
 
@@ -79,6 +77,7 @@ export default async function handler(req, res) {
           ],
           max_tokens: 1000,
           temperature: 0.7,
+          modalities: ['text', 'image']
         }),
       });
       
