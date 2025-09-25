@@ -133,21 +133,23 @@ Financial amount detected with different component sizes:
 - ORIGINAL COMPONENTS: "${originalComponents.currency}${originalComponents.mainAmount}${originalComponents.decimal}${originalComponents.cents}"
 - NEW COMPONENTS: "${newComponents.currency}${newComponents.mainAmount}${newComponents.decimal}${newComponents.cents}"
 
-**COMPONENT-SPECIFIC MEASUREMENT & ANALYSIS:**
-1. MEASURE original main amount "${originalComponents.mainAmount}" pixel height (baseline reference)
-2. MEASURE original cents ".${originalComponents.cents}" pixel height and calculate exact size ratio
-3. DETERMINE if cents are smaller than main amount (common in banking apps)
-4. REPLICATE measured size ratio exactly for new text: "${newComponents.mainAmount}" vs ".${newComponents.cents}"
-5. MAINTAIN identical baseline alignment and spacing relationships` : ''}
+**ULTRA-PRECISE COMPONENT MEASUREMENT & ANALYSIS:**
+1. **MEASURE BASELINE**: Original main amount "${originalComponents.mainAmount}" = X pixels height (your reference)
+2. **MEASURE CENTS**: Original cents ".${originalComponents.cents}" = Y pixels height
+3. **CALCULATE RATIO**: Cents ratio = Y/X (e.g., if cents are 18px and main is 24px = 0.75 ratio)
+4. **STATE YOUR FINDINGS**: Before editing, explicitly state: "Main amount: Xpx, Cents: Ypx, Ratio: Z"
+5. **VERIFY THICKNESS**: Measure stroke width of original text in pixels
+6. **REPLICATE PRECISELY**: New "${newComponents.mainAmount}" at X pixels, new ".${newComponents.cents}" at Y pixels (maintaining exact ratio)
+7. **VERIFY RESULT**: Confirm your replacement matches stated measurements exactly` : ''}
 
-**MANDATORY DETAILED FORENSIC ANALYSIS (Perform in exact order):**
-1. **Color Forensics**: Measure precise RGB/HSL values of the text "${originalText}"
-2. **Typography Forensics**: Determine exact font family, weight (100-900 scale), style, and characteristics
-3. **Dimensional Forensics**: Calculate precise font size and proportions relative to image
-4. **Background Forensics**: Analyze surrounding colors, gradients, textures, and patterns
-5. **Effect Forensics**: Detect shadows, outlines, gradients, or special text effects
-6. **Edge Forensics**: Analyze antialiasing patterns and edge smoothing techniques
-7. **Spacing Forensics**: Measure letter-spacing, word-spacing, and baseline positioning
+**MANDATORY MEASUREMENT-FIRST FORENSIC ANALYSIS (Perform in exact order):**
+1. **THICKNESS MEASUREMENT**: Measure stroke thickness of "${originalText}" in pixels - state exact thickness before proceeding
+2. **COLOR MEASUREMENT**: Extract precise RGB/HSL values - state exact values (e.g., "RGB(51, 51, 51)" or "HSL(0, 0%, 20%)")
+3. **FONT WEIGHT DETECTION**: Determine exact weight on 100-900 scale - state numerical weight (e.g., "400", "500", "600")
+4. **SIZE MEASUREMENT**: Calculate exact font size in pixels - state precise measurement
+5. **TYPOGRAPHY ANALYSIS**: Identify font family and style characteristics
+6. **BACKGROUND ANALYSIS**: Examine surrounding colors and textures for seamless blending
+7. **VERIFICATION REQUIREMENT**: Before generating, state all measurements: "Thickness: Xpx, Color: RGB(r,g,b), Weight: W, Size: Spx"
 
 **PRECISION REPLACEMENT PARAMETERS:**
 - **Exact Coordinates**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%

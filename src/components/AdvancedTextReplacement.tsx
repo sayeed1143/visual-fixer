@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Wand2, Sparkles, Zap, Palette, Type, Settings, ChevronDown } from "lucide-react";
+import { Wand2, Sparkles, Zap, Palette, Type, Settings, ChevronDown, Search, Copy } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,6 +46,8 @@ export const AdvancedTextReplacement = ({
   const [analysis, setAnalysis] = useState<{ font: FontMetrics | null; color: ColorAnalysis | null } | null>(null);
   const [manualWeight, setManualWeight] = useState("normal");
   const [manualColor, setManualColor] = useState("#000000");
+  const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
+  const [isDetailedAnalyzing, setIsDetailedAnalyzing] = useState(false);
 
   const handleTextSelect = useCallback(async (text: DetectedText) => {
     onTextSelect(text);
@@ -123,6 +125,57 @@ export const AdvancedTextReplacement = ({
       setIsProcessing(false);
     }
   }, [selectedText, replacementText, imageDataUrl, onTextReplace, analysis, manualWeight, manualColor]);
+
+  const handleDetailedAnalysis = async () => {
+    if (!selectedText || !imageDataUrl) {
+      toast.error("Please select text first");
+      return;
+    }
+
+    setIsDetailedAnalyzing(true);
+    toast.loading("AI analyzing text details for manual editing...");
+
+    try {
+      const response = await fetch('/api/analyze-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageDataUrl,
+          textToAnalyze: selectedText.text,
+          coordinates: {
+            x: selectedText.x,
+            y: selectedText.y,
+            width: selectedText.width,
+            height: selectedText.height
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to analyze text details');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.analysis) {
+        setDetailedAnalysis(data);
+        toast.success("Text analysis complete! Check details below for manual editing.");
+      } else {
+        throw new Error('Invalid analysis response');
+      }
+    } catch (error) {
+      console.error('Detailed analysis failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Analysis failed');
+    } finally {
+      setIsDetailedAnalyzing(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+  };
 
   if (disabled) {
     return (
@@ -243,17 +296,133 @@ export const AdvancedTextReplacement = ({
       )}
 
       {selectedText && (
-        <Button
-          onClick={handleReplaceText}
-          disabled={isProcessing || isAnalyzing || !replacementText.trim()}
-          className="w-full mt-4 bg-gradient-to-r from-primary to-pink-500 text-white font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-glow"
-        >
-          {isProcessing ? (
-            <><Zap className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
-          ) : (
-            <><Wand2 className="h-4 w-4 mr-2" /> Replace with AI</>
-          )}
-        </Button>
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={handleDetailedAnalysis}
+              disabled={isDetailedAnalyzing}
+              variant="outline"
+              className="bg-white/5 border-white/20 text-foreground hover:bg-white/10"
+            >
+              {isDetailedAnalyzing ? (
+                <><Zap className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</>
+              ) : (
+                <><Search className="h-4 w-4 mr-2" /> Analyze Details</>
+              )}
+            </Button>
+            <Button
+              onClick={handleReplaceText}
+              disabled={isProcessing || isAnalyzing || !replacementText.trim()}
+              className="bg-gradient-to-r from-primary to-pink-500 text-white font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-glow"
+            >
+              {isProcessing ? (
+                <><Zap className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+              ) : (
+                <><Wand2 className="h-4 w-4 mr-2" /> Replace with AI</>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {detailedAnalysis && (
+        <Card className="mt-4 p-4 bg-gradient-to-br from-blue-900/20 to-purple-900/20 border-blue-400/30 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Search className="mr-2 h-5 w-5 text-blue-400" />
+              <h3 className="font-semibold text-foreground">Detailed Analysis for Manual Editing</h3>
+            </div>
+            <Badge variant="outline" className="text-blue-400 border-blue-400">
+              {detailedAnalysis.isFinancialData ? "Financial Data" : "Text Analysis"}
+            </Badge>
+          </div>
+          
+          <div className="space-y-4">
+            {detailedAnalysis.parsed && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                {detailedAnalysis.parsed.thickness && (
+                  <div className="space-y-1">
+                    <Label className="text-blue-300 font-medium">Thickness</Label>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-foreground">{detailedAnalysis.parsed.thickness}</span>
+                      <Button variant="ghost" size="sm" onClick={() => copyToClipboard(detailedAnalysis.parsed.thickness)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {detailedAnalysis.parsed.color && (
+                  <div className="space-y-1">
+                    <Label className="text-blue-300 font-medium">Color</Label>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-foreground">{detailedAnalysis.parsed.color}</span>
+                      <Button variant="ghost" size="sm" onClick={() => copyToClipboard(detailedAnalysis.parsed.color)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {detailedAnalysis.parsed.font && (
+                  <div className="space-y-1">
+                    <Label className="text-blue-300 font-medium">Font</Label>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-foreground">{detailedAnalysis.parsed.font}</span>
+                      <Button variant="ghost" size="sm" onClick={() => copyToClipboard(detailedAnalysis.parsed.font)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {detailedAnalysis.parsed.size && (
+                  <div className="space-y-1">
+                    <Label className="text-blue-300 font-medium">Size</Label>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-foreground">{detailedAnalysis.parsed.size}</span>
+                      <Button variant="ghost" size="sm" onClick={() => copyToClipboard(detailedAnalysis.parsed.size)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {detailedAnalysis.parsed.mixedSizing && (
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-orange-300 font-medium">Mixed Typography (Financial)</Label>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-foreground">{detailedAnalysis.parsed.mixedSizing}</span>
+                      <Button variant="ghost" size="sm" onClick={() => copyToClipboard(detailedAnalysis.parsed.mixedSizing)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-2 bg-black/10 rounded">
+                <span className="text-sm font-medium text-blue-300">Full Analysis Report</span>
+                <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <div className="bg-black/20 p-3 rounded text-xs font-mono text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  {detailedAnalysis.analysis}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-blue-400"
+                  onClick={() => copyToClipboard(detailedAnalysis.analysis)}
+                >
+                  <Copy className="h-3 w-3 mr-1" /> Copy Full Report
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </Card>
       )}
     </>
   );
