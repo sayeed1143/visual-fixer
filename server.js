@@ -205,11 +205,40 @@ app.post('/api/replace-text', async (req, res) => {
       // Detect if this is financial/numerical data for specialized handling
       const isFinancialData = /[£$€¥₹₨]|[0-9,]+\.[0-9]{2}|\b\d{1,3}(,\d{3})*(\.\d{2})?\b/.test(originalText + newText);
       
+      // Analyze typography components for mixed sizing
+      const analyzeTypographyComponents = (text) => {
+        const components = {
+          currency: '',
+          mainAmount: '',
+          decimal: '',
+          cents: '',
+          hasMixedSizing: false
+        };
+        
+        // Match currency + amount + decimal + cents pattern like "£2,906.01"
+        const match = text.match(/([£$€¥₹₨]?)\s*([0-9,]+)(\.)([0-9]{1,2})/);
+        if (match) {
+          components.currency = match[1] || '';
+          components.mainAmount = match[2];
+          components.decimal = match[3];
+          components.cents = match[4];
+          components.hasMixedSizing = true;
+        }
+        return components;
+      };
+      
+      const originalComponents = analyzeTypographyComponents(originalText);
+      const newComponents = analyzeTypographyComponents(newText);
+      // Only enable mixed typography when both sides have valid decimal components
+      const hasMixedTypography = originalComponents.hasMixedSizing && newComponents.hasMixedSizing && 
+                                originalComponents.cents && newComponents.cents;
+      
       prompt = `You are a world-class image forensics expert specializing in PIXEL-PERFECT text replacement with expertise in financial app interface replication. Your task is to perform invisible text replacement that maintains absolute visual fidelity.
 
 **CRITICAL ANALYSIS & REPLACEMENT MISSION:**
 Replace "${originalText}" with "${newText}" while preserving EVERY visual characteristic with forensic precision.
 ${isFinancialData ? '\n**SPECIAL FINANCIAL DATA REQUIREMENTS:**\nThis appears to be financial/numerical data. Apply EXTRA precision for currency symbols, number formatting, decimal alignment, and banking app font characteristics.' : ''}
+${hasMixedTypography ? `\n**CRITICAL MIXED TYPOGRAPHY ANALYSIS:**\nThis financial amount may use different font sizes for different components - measure to confirm:\n- ORIGINAL: Currency "${originalComponents.currency}" + Main Amount "${originalComponents.mainAmount}" + Decimal "${originalComponents.decimal}" + Cents "${originalComponents.cents}"\n- NEW: Currency "${newComponents.currency}" + Main Amount "${newComponents.mainAmount}" + Decimal "${newComponents.decimal}" + Cents "${newComponents.cents}"\n\n**MANDATORY SIZE RELATIONSHIPS:**\n- Main amount (${originalComponents.mainAmount} → ${newComponents.mainAmount}): PRIMARY font size (100% scale baseline)\n- Cents (.${originalComponents.cents} → .${newComponents.cents}): Use measured size ratio; if ratio ≈ 1.0, keep same size; otherwise apply exact measured ratio\n- Currency symbol: Measure and replicate original relative sizing\n- Decimal point: Measure and replicate original sizing group (main vs cents)\n\n**EXACT MEASUREMENT & SIZING INSTRUCTIONS:**\n1. FIRST: Measure the pixel height ratio between main amount "${originalComponents.mainAmount}" and cents ".${originalComponents.cents}" in the original image\n2. SECOND: Determine which size group the decimal point belongs to (main amount size or cents size)\n3. CONDITIONAL: If measurement shows equal sizes (ratio ≈ 1.0), keep cents and decimal exactly the same size as the main amount\n4. THIRD: Apply the EXACT measured ratio to the new text: main "${newComponents.mainAmount}" vs cents ".${newComponents.cents}"\n5. FOURTH: Maintain identical baseline alignment and decimal point positioning as measured` : ''}
 
 **MANDATORY PRE-REPLACEMENT ANALYSIS:**
 1. **Color Analysis**: Measure exact RGB/HSL values of text color '${colorAnalysis.textColor}'
@@ -249,11 +278,39 @@ Generate the perfect replacement image where "${newText}" replaces "${originalTe
       // Detect if this is financial/numerical data for specialized handling
       const isFinancialData = /[£$€¥₹₨]|[0-9,]+\.[0-9]{2}|\b\d{1,3}(,\d{3})*(\.\d{2})?\b/.test(originalText + newText);
       
+      // Analyze typography components for mixed sizing (same function as above)
+      const analyzeTypographyComponents = (text) => {
+        const components = {
+          currency: '',
+          mainAmount: '',
+          decimal: '',
+          cents: '',
+          hasMixedSizing: false
+        };
+        
+        const match = text.match(/([£$€¥₹₨]?)\s*([0-9,]+)(\.)([0-9]{1,2})/);
+        if (match) {
+          components.currency = match[1] || '';
+          components.mainAmount = match[2];
+          components.decimal = match[3];
+          components.cents = match[4];
+          components.hasMixedSizing = true;
+        }
+        return components;
+      };
+      
+      const originalComponents = analyzeTypographyComponents(originalText);
+      const newComponents = analyzeTypographyComponents(newText);
+      // Only enable mixed typography when both sides have valid decimal components
+      const hasMixedTypography = originalComponents.hasMixedSizing && newComponents.hasMixedSizing && 
+                                originalComponents.cents && newComponents.cents;
+      
       prompt = `You are a world-class forensic image analyst specializing in INVISIBLE text replacement with expertise in banking and financial app interfaces. Your mission is to perform comprehensive visual analysis and create a perfect replacement that cannot be detected by human inspection.
 
 **COMPREHENSIVE ANALYSIS MISSION:**
 Replace "${originalText}" with "${newText}" after conducting thorough forensic analysis of ALL visual characteristics.
 ${isFinancialData ? '\n**CRITICAL FINANCIAL DATA NOTICE:**\nThis appears to be financial/numerical data from a banking or financial app. Apply MAXIMUM precision for currency symbols, number formatting, decimal alignment, and professional banking app font characteristics. Even tiny differences in thickness, weight, or spacing will be immediately visible to users.' : ''}
+${hasMixedTypography ? `\n**CRITICAL MIXED TYPOGRAPHY ANALYSIS:**\nThis financial amount may use different font sizes - measure to confirm component-level sizing:\n- ORIGINAL COMPONENTS: "${originalComponents.currency}${originalComponents.mainAmount}${originalComponents.decimal}${originalComponents.cents}"\n- NEW COMPONENTS: "${newComponents.currency}${newComponents.mainAmount}${newComponents.decimal}${newComponents.cents}"\n\n**COMPONENT-SPECIFIC MEASUREMENT & ANALYSIS:**\n1. MEASURE original main amount "${originalComponents.mainAmount}" pixel height (baseline size)\n2. MEASURE original cents ".${originalComponents.cents}" pixel height and calculate exact ratio\n3. DETERMINE decimal point size group (matches main amount or cents size)\n4. CONDITIONAL: If measurement shows equal sizes (ratio ≈ 1.0), keep all components the same size\n5. REPLICATE measured size ratio exactly for new text: "${newComponents.mainAmount}" vs ".${newComponents.cents}"\n6. MAINTAIN identical baseline alignment and spacing relationships` : ''}
 
 **MANDATORY DETAILED ANALYSIS (Perform in this exact order):**
 1. **Color Forensics**: Measure precise RGB/HSL values of the text "${originalText}"
