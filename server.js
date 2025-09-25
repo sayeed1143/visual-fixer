@@ -117,14 +117,14 @@ app.post('/api/edit-image', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
-    // Diversified models for image editing with different strengths
+    // Valid models for image editing - using only verified working models
     const models = [
       'google/gemini-2.5-flash-image-preview',
       'anthropic/claude-3.5-sonnet',
       'openai/gpt-4o',
       'google/gemini-flash-1.5',
-      'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-dev'
+      'stability-ai/stable-diffusion-3-medium',
+      'google/gemini-2.0-flash-001'
     ];
 
     for (const model of models) {
@@ -190,70 +190,96 @@ app.post('/api/replace-text', async (req, res) => {
       return res.status(400).json({ error: 'OpenRouter API key not configured', code: 'MISSING_API_KEY' });
     }
 
-    // Diversified models for text replacement with specialized capabilities
+    // Valid models for text replacement - focusing on accuracy and analysis
     const models = [
       'google/gemini-2.5-flash-image-preview',
       'anthropic/claude-3.5-sonnet', 
       'openai/gpt-4o',
-      'black-forest-labs/flux-1.1-pro',
-      'black-forest-labs/flux-dev',
+      'google/gemini-2.0-flash-001',
+      'google/gemini-flash-1.5',
       'stability-ai/stable-diffusion-3-medium'
     ];
 
     let prompt;
     if (fontStyle && colorAnalysis) {
-      prompt = `You are a specialized AI model for PIXEL-PERFECT text replacement. Your expertise is in precisely matching all visual characteristics of existing text.
+      prompt = `You are a world-class image forensics expert specializing in PIXEL-PERFECT text replacement. Your task is to perform invisible text replacement that maintains absolute visual fidelity.
 
-**CRITICAL MISSION:** Replace "${originalText}" with "${newText}" while maintaining PERFECT visual consistency.
+**CRITICAL ANALYSIS & REPLACEMENT MISSION:**
+Replace "${originalText}" with "${newText}" while preserving EVERY visual characteristic with forensic precision.
 
-**EXACT PARAMETERS:**
-- **Location**: Target area is at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
-- **Text Color**: EXACTLY match '${colorAnalysis.textColor}' (analyzed from original)
-- **Background**: Blend with '${colorAnalysis.averageColor}' background
-- **Font Weight**: EXACTLY replicate '${fontStyle.fontWeight}' thickness
-- **Font Size**: Scale PRECISELY to match the original text dimensions
-- **Character Spacing**: Preserve original letter and word spacing
+**MANDATORY PRE-REPLACEMENT ANALYSIS:**
+1. **Color Analysis**: Measure exact RGB/HSL values of text color '${colorAnalysis.textColor}'
+2. **Typography Analysis**: Determine precise font family, weight ${fontStyle.fontWeight}, and style characteristics
+3. **Dimensional Analysis**: Calculate exact pixel dimensions and proportions
+4. **Background Analysis**: Analyze background color '${colorAnalysis.averageColor}' and texture patterns
+5. **Effect Analysis**: Detect any shadows, outlines, gradients, or special text effects
 
-**FAILURE CONDITIONS:**
-- ANY size difference visible to human eye
-- ANY color variance from specified hex codes
-- ANY thickness/weight difference
+**PRECISE REPLACEMENT PARAMETERS:**
+- **Exact Location**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+- **Color Matching**: Use EXACT hex color '${colorAnalysis.textColor}' - no variation allowed
+- **Background Integration**: Seamlessly blend with background '${colorAnalysis.averageColor}'
+- **Font Replication**: Match font weight '${fontStyle.fontWeight}' and thickness precisely
+- **Size Precision**: Scale to match original dimensions exactly
+- **Character Metrics**: Preserve original letter-spacing, word-spacing, and baseline
+- **Antialiasing**: Match original text's edge smoothing and rendering quality
+- **Effects Preservation**: Replicate any shadows, outlines, or special effects
+
+**QUALITY ASSURANCE CHECKS:**
+- Text edges must be identical to original smoothness
+- Color gradients (if any) must be preserved
+- Background must appear undisturbed
+- No visible artifacts or inconsistencies
+- New text must appear as if originally typed
+
+**ABSOLUTE FAILURE CONDITIONS:**
+- ANY color shift (even 1 RGB value difference)
+- ANY size or thickness variation
 - ANY spacing irregularities
-- ANY blurring or quality degradation
+- ANY edge quality degradation
+- ANY background disturbance
+- ANY visible editing artifacts
 
-**SUCCESS CRITERIA:**
-The replacement must be indistinguishable from the original text. A human observer should not be able to detect that any editing occurred.
-
-Generate the image with "${newText}" replacing "${originalText}" using these exact specifications.`;
+Generate the perfect replacement image where "${newText}" replaces "${originalText}" with complete visual invisibility of the edit.`;
     } else {
-      prompt = `You are a specialized AI model for PIXEL-PERFECT text replacement. Your expertise is in precisely matching all visual characteristics of existing text.
+      prompt = `You are a world-class forensic image analyst specializing in INVISIBLE text replacement. Your mission is to perform comprehensive visual analysis and create a perfect replacement that cannot be detected by human inspection.
 
-**CRITICAL MISSION:** Replace "${originalText}" with "${newText}" while maintaining PERFECT visual consistency.
+**COMPREHENSIVE ANALYSIS MISSION:**
+Replace "${originalText}" with "${newText}" after conducting thorough forensic analysis of ALL visual characteristics.
 
-**ANALYSIS REQUIRED:**
-1. **Precise Color Analysis**: Measure the exact hex color of "${originalText}"
-2. **Font Characteristics**: Determine exact font weight, style, and family
-3. **Size Measurements**: Calculate precise font size relative to image dimensions
-4. **Background Integration**: Analyze surrounding background colors and textures
-5. **Effect Detection**: Identify any shadows, outlines, or special effects
+**MANDATORY DETAILED ANALYSIS (Perform in this exact order):**
+1. **Color Forensics**: Measure precise RGB/HSL values of the text "${originalText}"
+2. **Typography Forensics**: Determine exact font family, weight (100-900 scale), style, and serif characteristics
+3. **Dimensional Forensics**: Calculate precise font size in pixels and relative to image dimensions
+4. **Background Forensics**: Analyze surrounding colors, gradients, textures, and patterns
+5. **Effect Forensics**: Detect shadows (offset, blur, color), outlines, gradients, or special effects
+6. **Edge Forensics**: Analyze antialiasing patterns and edge smoothing techniques
+7. **Spacing Forensics**: Measure letter-spacing, word-spacing, and baseline positioning
 
-**EXACT PARAMETERS:**
-- **Location**: Target area is at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
-- **Font Size**: MUST match original text dimensions exactly
-- **Character Spacing**: Preserve original letter and word spacing
-- **Alignment**: Maintain exact positioning within the bounding box
+**PRECISION REPLACEMENT PARAMETERS:**
+- **Exact Coordinates**: Position at (${coordinates.x.toFixed(2)}%, ${coordinates.y.toFixed(2)}%) with dimensions ${coordinates.width.toFixed(2)}% × ${coordinates.height.toFixed(2)}%
+- **Color Matching**: Use EXACT analyzed color - zero tolerance for variation
+- **Font Replication**: Match analyzed font characteristics with perfect precision
+- **Size Replication**: Scale to match original dimensions exactly
+- **Background Reconstruction**: Seamlessly reconstruct background where text was removed
+- **Effect Replication**: Recreate any shadows, outlines, or special effects precisely
+- **Antialiasing Matching**: Replicate original edge smoothing quality
 
-**FAILURE CONDITIONS:**
-- ANY size difference visible to human eye
-- ANY color variance from the original
-- ANY thickness/weight difference
-- ANY spacing irregularities
-- ANY blurring or quality degradation
+**FORENSIC QUALITY STANDARDS:**
+- Text must appear as if it was originally created, not edited
+- Background must show no signs of manipulation
+- Color gradients and textures must be perfectly preserved
+- Edge quality must be identical to original rendering
+- No visible artifacts, inconsistencies, or editing traces
 
-**SUCCESS CRITERIA:**
-The replacement must be indistinguishable from the original text. A human observer should not be able to detect that any editing occurred.
+**ZERO-TOLERANCE FAILURE CONDITIONS:**
+- ANY detectable color shift or variation
+- ANY size, thickness, or weight differences
+- ANY spacing or alignment irregularities
+- ANY edge quality degradation or artifacts
+- ANY visible signs of background reconstruction
+- ANY inconsistency in text rendering quality
 
-Generate the image with "${newText}" replacing "${originalText}" using these exact specifications.`;
+Execute perfect forensic replacement of "${originalText}" with "${newText}" maintaining absolute visual invisibility.`;
     }
 
 
